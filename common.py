@@ -10,7 +10,6 @@ from tqdm import tqdm
 from os.path import join, exists
 from glob import glob
 
-
 stop_list = stopwords.words('russian')
 stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
 stop_list.extend(list(string.punctuation))
@@ -78,8 +77,6 @@ def atoi(text):
 def natural_keys(text):
     '''
     alist.sort(key=natural_keys) sorts in human order
-    http://nedbatchelder.com/blog/200712/human_sorting.html
-    (See Toothy's implementation in the comments)
     '''
     return [ atoi(c) for c in re.split('(\d+)', text) ]
 
