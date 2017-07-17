@@ -13,6 +13,7 @@ from glob import glob
 stop_list = stopwords.words('russian')
 stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
 stop_list.extend(list(string.punctuation))
+stop_list = set(stop_list)
 
 punkts = [s for s in string.punctuation if s not in '.!?']
 
