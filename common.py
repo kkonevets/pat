@@ -10,6 +10,11 @@ from tqdm import tqdm
 from os.path import join, exists
 from glob import glob
 
+from matplotlib import pyplot as plt
+
+import numpy as np
+import pandas as pd
+
 stop_list = stopwords.words('russian')
 stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
 stop_list.extend(list(string.punctuation))
@@ -94,3 +99,48 @@ def get_all_docs(data_folder):
             all_docs = f.read().splitlines()
     
     return all_docs
+
+
+def softmax(w, t = 1.0):
+    e = np.exp(np.array(w).astype(float) / t)
+    dist = e / np.sum(e)
+    return dist
+
+
+def evaluate(preds, gold):
+    result = []
+    for key, val in preds.items():
+        true_val = gold[key]
+        gold_len = len(true_val)
+
+        inter10 = set(val[0:10]).intersection(true_val)
+        inter20 = set(val[0:20]).intersection(true_val)
+        inter200 = set(val[0:200]).intersection(true_val)
+
+        acc10 = len(inter10)/gold_len
+        acc20 = len(inter20)/gold_len
+        acc200 = len(inter200)/gold_len
+
+        result.append([acc10, acc20, acc200])
+
+    result = pd.DataFrame(result, columns=['acc10', 'acc20', 'acc200'])
+    
+    print('median')
+    print(result.median(axis=0))
+    
+    print('mean')
+    print(result.mean(axis=0))
+    
+    ax = result['acc10'].hist()
+    ax.set_xlabel("acc10")
+    plt.show()
+    
+    ax = result['acc20'].hist()
+    ax.set_xlabel("acc20")
+    plt.show()
+    
+    ax = result['acc200'].hist()
+    ax.set_xlabel("acc200")
+    plt.show()
+    
+    return result
