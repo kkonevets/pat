@@ -2,12 +2,12 @@ import gensim
 from gensim import corpora
 import nltk
 from nltk.corpus import stopwords
-from nltk.tokenize.toktok import ToktokTokenizer
+from nltk.tokenize import RegexpTokenizer
 import string
 from itertools import islice
 import re
 from tqdm import tqdm
-from os.path import join, exists
+from os.path import join, exists, dirname, realpath
 from glob import glob
 
 from matplotlib import pyplot as plt
@@ -18,10 +18,20 @@ import pandas as pd
 stop_list = stopwords.words('russian')
 stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
 stop_list.extend(list(string.punctuation))
+cur_dir = dirname(realpath(__file__))
+with open(join(cur_dir, 'SimilarStopWords.txt'), 'r') as f:
+    extra_stop_words = f.read().splitlines()
+stop_list.extend(extra_stop_words)
 stop_list = set(stop_list)
+
+prog = re.compile('[«».`]')
+# check if string contains number
+_digits = re.compile('\d')
 
 punkts = [s for s in string.punctuation if s not in '.!?']
 
+# only Russian letters and minimum 2 symbols in a word
+# word_tokenizer = RegexpTokenizer(r'[а-я]{2,}')
 
 class Corpus(gensim.corpora.TextCorpus):
     def get_texts(self):
@@ -41,17 +51,24 @@ def save_corpus(list_block, dir_name, prefix):
     return dic_name, corp_name
     
             
+# def tokenize(file_text):
+#     tokens = word_tokenizer.tokenize(file_text)
+#     tokens = [word for word in tokens if word not in stop_list]
+    
+#     return tokens
+
+
 def tokenize(file_text):
     tokens = nltk.word_tokenize(file_text)
 
     tokens = [validate_word(word) for word in tokens if check_word(word)]
-    tokens = filter(lambda s: s != '', tokens)
+    tokens = list(filter(lambda s: s != '', tokens))
     
     return tokens
 
-            
+
 def validate_word(word):
-    word = word.replace("«", "").replace("»", "").replace("`", '').replace(".", '')
+    word = prog.sub('', word)
     if len(word) == 1:
         return ''
 
@@ -61,7 +78,7 @@ def validate_word(word):
 def check_word(word):
     if word in stop_list:
         return False
-    if any(char.isdigit() for char in word):
+    if bool(_digits.search(word)):
         return False
     
     return True
