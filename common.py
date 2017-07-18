@@ -24,10 +24,6 @@ with open(join(cur_dir, 'SimilarStopWords.txt'), 'r') as f:
 stop_list.extend(extra_stop_words)
 stop_list = set(stop_list)
 
-prog = re.compile('[«».`]')
-# check if string contains number
-_digits = re.compile('\d')
-
 punkts = [s for s in string.punctuation if s not in '.!?']
 
 # only Russian letters and minimum 2 symbols in a word
@@ -62,13 +58,13 @@ def tokenize(file_text):
     tokens = nltk.word_tokenize(file_text)
 
     tokens = [validate_word(word) for word in tokens if check_word(word)]
-    tokens = list(filter(lambda s: s != '', tokens))
+    tokens = filter(lambda s: s != '', tokens)
     
     return tokens
 
 
 def validate_word(word):
-    word = prog.sub('', word)
+    word = word.replace("«", "").replace("»", "").replace("`", '').replace(".", '')
     if len(word) == 1:
         return ''
 
@@ -78,7 +74,7 @@ def validate_word(word):
 def check_word(word):
     if word in stop_list:
         return False
-    if bool(_digits.search(word)):
+    if any(char.isdigit() for char in word):
         return False
     
     return True
