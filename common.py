@@ -29,55 +29,12 @@ punkts = [s for s in string.punctuation if s not in '.!?']
 # only Russian letters and minimum 2 symbols in a word
 word_tokenizer = RegexpTokenizer(r'[а-яА-Яa-zA-Z]{2,}')
 
-class Corpus(gensim.corpora.TextCorpus):
-    def get_texts(self):
-        for filename in tqdm(self.input): # for each relevant file
-            yield tokenize(open(filename).read())
-
-            
-def save_corpus(list_block, dir_name, prefix):
-    corpus = Corpus(list_block)
-    
-    dic_name = join(dir_name, '%s.dict' % prefix)
-    corp_name = join(dir_name, '%s_corpus.mm' % prefix)
-    
-    corpus.dictionary.save(dic_name)
-    corpora.MmCorpus.serialize(corp_name, corpus)
-    
-    return dic_name, corp_name
-    
-            
+                
 def tokenize(file_text):
     tokens = word_tokenizer.tokenize(file_text)
     tokens = [word for word in tokens if word not in stop_list]
     
     return tokens
-
-
-# def tokenize(file_text):
-#     tokens = nltk.word_tokenize(file_text)
-
-#     tokens = [validate_word(word) for word in tokens if check_word(word)]
-#     tokens = filter(lambda s: s != '', tokens)
-    
-#     return tokens
-
-
-def validate_word(word):
-    word = word.replace("«", "").replace("»", "").replace("`", '').replace(".", '')
-    if len(word) == 1:
-        return ''
-
-    return word
-
-
-def check_word(word):
-    if word in stop_list:
-        return False
-    if any(char.isdigit() for char in word):
-        return False
-    
-    return True
 
 
 def grouper(n, iterable):
