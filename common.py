@@ -31,7 +31,7 @@ punkts = [s for s in string.punctuation if s not in '.!?']
 # only Russian letters and minimum 2 symbols in a word
 word_tokenizer = RegexpTokenizer(r'[а-яА-Яa-zA-Z]{2,}')
 
-                
+
 def tokenize(file_text, stop_list=stop_list):
     tokens = word_tokenizer.tokenize(file_text)
     if stop_list is not None:
