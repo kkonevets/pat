@@ -30,7 +30,7 @@ punkts = [s for s in string.punctuation if s not in '.!?']
 word_tokenizer = RegexpTokenizer(r'[а-яА-Яa-zA-Z]{2,}')
 
                 
-def tokenize(file_text):
+def tokenize(file_text, stop_list=stop_list):
     tokens = word_tokenizer.tokenize(file_text)
     tokens = [word for word in tokens if word not in stop_list]
     
