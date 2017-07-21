@@ -15,14 +15,16 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 
-stop_list = stopwords.words('russian')
-stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
-stop_list.extend(list(string.punctuation))
+simple_stop_list = stopwords.words('russian')
+simple_stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
+simple_stop_list.extend(list(string.punctuation))
+
 cur_dir = dirname(realpath(__file__))
 with open(join(cur_dir, 'SimilarStopWords.txt'), 'r') as f:
     extra_stop_words = f.read().splitlines()
-stop_list.extend(extra_stop_words)
-stop_list = set(stop_list)
+
+stop_list = set(simple_stop_list)
+stop_list.add(extra_stop_words)
 
 punkts = [s for s in string.punctuation if s not in '.!?']
 
@@ -32,7 +34,8 @@ word_tokenizer = RegexpTokenizer(r'[а-яА-Яa-zA-Z]{2,}')
                 
 def tokenize(file_text, stop_list=stop_list):
     tokens = word_tokenizer.tokenize(file_text)
-    tokens = [word for word in tokens if word not in stop_list]
+    if stop_list is not None:
+        tokens = [word for word in tokens if word not in stop_list]
     
     return tokens
 
