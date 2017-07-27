@@ -1,19 +1,31 @@
+from __future__ import division
+
 import gensim
-from gensim import corpora
+from gensim import corpora, models, similarities
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
 import string
 from itertools import islice
-import re
+from operator import itemgetter
+import re, json
 from tqdm import tqdm
-from os.path import join, exists, dirname, realpath
+from os.path import join, exists, dirname, realpath, basename
 from glob import glob
+from os import path
+from tqdm import tqdm
 
 from matplotlib import pyplot as plt
 
 import numpy as np
 import pandas as pd
+
+import logging
+from sklearn.metrics.pairwise import cosine_similarity
+
+DATA_FOLDER = '../data/'
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
 
 simple_stop_list = stopwords.words('russian')
 simple_stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'как', 'в', '—', 'к', 'на', 'ко'])
