@@ -14,6 +14,7 @@ from os.path import join, exists, dirname, realpath, basename
 from glob import glob
 from os import path
 from tqdm import tqdm
+from gzip import GzipFile
 
 from matplotlib import pyplot as plt
 
