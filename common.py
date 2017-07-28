@@ -24,6 +24,12 @@ import pandas as pd
 import logging
 from sklearn.metrics.pairwise import cosine_similarity
 
+from joblib import Parallel, delayed
+from joblib.pool import has_shareable_memory
+
+import multiprocessing
+cpu_count = multiprocessing.cpu_count()
+
 DATA_FOLDER = '../data/'
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
