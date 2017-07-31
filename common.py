@@ -90,7 +90,7 @@ def get_all_docs(data_folder):
         with open(fname, mode='r', encoding='utf-8') as f:
             all_docs = f.read().splitlines()
     
-    return all_docs
+    return sorted(all_docs)
 
 
 def softmax(w, t = 1.0):
