@@ -85,13 +85,14 @@ def get_all_docs(data_folder):
 
     if not exists(fname):
         all_docs = glob(join(data_folder, 'FIPS') + '/**/*.txt', recursive=True)
+        all_docs = sorted(all_docs)
         with open(fname, mode='wt', encoding='utf-8') as f:
             f.write('\n'.join(all_docs))
     else:
         with open(fname, mode='r', encoding='utf-8') as f:
             all_docs = f.read().splitlines()
     
-    return sorted(all_docs)
+    return all_docs
 
 
 def softmax(w, t = 1.0):
