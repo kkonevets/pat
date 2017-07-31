@@ -30,6 +30,7 @@ from joblib.pool import has_shareable_memory
 import multiprocessing
 cpu_count = multiprocessing.cpu_count()
 
+
 DATA_FOLDER = '../data/'
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -100,6 +101,7 @@ def softmax(w, t = 1.0):
 
 
 def evaluate(preds, gold):
+        
     result = []
     for key, val in preds.items():
         true_val = gold[key]
@@ -136,3 +138,40 @@ def evaluate(preds, gold):
     plt.show()
     
     return result
+
+
+def send_email(notebook_url,
+              sender='kkonevets@gmail.com', 
+              receivers=['kkonevets@gmail.com'], 
+              subject='jupyter notification', 
+              body=''):
+    
+    import smtplib
+    from os.path import expanduser
+    from IPython.core.display import Javascript
+    
+    home = expanduser("~")
+    with open(home + '/gmail.pass') as f:
+        password = f.read().strip()
+    
+    msg = "\r\n".join([
+        "From: %s" % sender,
+        "To: %s" % (','.join(receivers)),
+        "Subject: %s" %subject,
+        "%s" % body,
+        "%s" % notebook_url        
+      ])
+
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.ehlo()
+        server.starttls()
+
+        server.login('kkonevets', password)
+        server.sendmail(sender, receivers, msg)
+        server.quit()
+
+        print("Successfully sent email")
+    except SMTPAuthenticationError:
+        print("Error: unable to send email")
