@@ -151,7 +151,7 @@ def send_email(notebook_url,
     from os.path import expanduser
     
     home = expanduser("~")
-    with open(home + '/mail.pass') as f:
+    with open(home + '/hash') as f:
         password = f.read().strip()
     
     msg = "\r\n".join([
