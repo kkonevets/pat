@@ -142,17 +142,16 @@ def evaluate(preds, gold):
 
 
 def send_email(notebook_url,
-              sender='kkonevets@gmail.com', 
+              sender='guyos@bk.ru', 
               receivers=['kkonevets@gmail.com'], 
               subject='jupyter notification', 
               body=''):
     
     import smtplib
     from os.path import expanduser
-    from IPython.core.display import Javascript
     
     home = expanduser("~")
-    with open(home + '/gmail.pass') as f:
+    with open(home + '/mail.pass') as f:
         password = f.read().strip()
     
     msg = "\r\n".join([
@@ -164,15 +163,10 @@ def send_email(notebook_url,
       ])
 
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com:587')
-        server.ehlo()
-        server.starttls()
+    server = smtplib.SMTP('smtp.mail.ru:587')
+    server.ehlo()
+    server.starttls()
 
-        server.login('kkonevets', password)
-        server.sendmail(sender, receivers, msg)
-        server.quit()
-
-        print("Successfully sent email")
-    except SMTPAuthenticationError:
-        print("Error: unable to send email")
+    server.login('guyos@bk.ru', password)
+    server.sendmail(sender, receivers, msg)
+    server.quit()
