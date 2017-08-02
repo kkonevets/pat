@@ -1,5 +1,7 @@
 from __future__ import division
 
+import tensorflow as tf
+
 import gensim
 from gensim import corpora, models, similarities
 import nltk
