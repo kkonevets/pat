@@ -82,11 +82,11 @@ def natural_keys(text):
     return [ atoi(c) for c in re.split('(\d+)', text) ]
 
 
-def get_all_docs(data_folder):
+def get_all_docs(data_folder, ext='txt'):
     fname = join(data_folder, 'all_docs.txt')
 
     if not exists(fname):
-        all_docs = glob(join(data_folder, 'FIPS') + '/**/*.txt', recursive=True)
+        all_docs = glob(data_folder + '/**/*.%s' % ext, recursive=True)
         all_docs = sorted(all_docs)
         with open(fname, mode='wt', encoding='utf-8') as f:
             f.write('\n'.join(all_docs))
