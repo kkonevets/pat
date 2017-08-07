@@ -63,10 +63,10 @@ def tokenize(file_text, stop_list=stop_list):
 def grouper(n, iterable):
     it = iter(iterable)
     while True:
-       chunk = tuple(islice(it, n))
-       if not chunk:
-           return
-       yield chunk
+        chunk = tuple(islice(it, n))
+        if not chunk:
+            return
+        yield chunk
 
 
 def atoi(text):
