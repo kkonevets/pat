@@ -4,6 +4,7 @@ import tensorflow as tf
 
 import gensim
 from gensim import corpora, models, similarities
+from gensim.models import Word2Vec
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
