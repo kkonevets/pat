@@ -45,6 +45,7 @@ with open(join(cur_dir, 'SimilarStopWords.txt'), 'r', encoding='utf8') as f:
     extra_stop_words = f.read().splitlines()
 
 stop_list = set(simple_stop_list)
+simple_stop_list = set(simple_stop_list)
 stop_list.update(extra_stop_words)
 
 punkts = [s for s in string.punctuation if s not in '.!?']
