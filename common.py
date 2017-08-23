@@ -43,7 +43,7 @@ simple_stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'к
 simple_stop_list.extend(list(string.punctuation))
 
 cur_dir = dirname(realpath(__file__))
-with open(join(cur_dir, 'SimilarStopWords.txt'), 'r', encoding='utf8') as f:
+with open(join(cur_dir, 'SimilarStopWords.txt'), 'r') as f:
     extra_stop_words = f.read().splitlines()
 
 stop_list = set(simple_stop_list)
