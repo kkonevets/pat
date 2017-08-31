@@ -33,7 +33,6 @@ from joblib.pool import has_shareable_memory
 import multiprocessing
 cpu_count = multiprocessing.cpu_count()
 
-
 DATA_FOLDER = '../data/'
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -53,7 +52,7 @@ stop_list.update(extra_stop_words)
 punkts = [s for s in string.punctuation if s not in '.!?']
 
 # only Russian letters and minimum 2 symbols in a word
-word_tokenizer = RegexpTokenizer(r'[а-яА-Яa-zA-Z]{2,}')
+word_tokenizer = RegexpTokenizer(u'[а-яА-Яa-zA-Z]{2,}')
 
 
 def tokenize(file_text, stop_list=stop_list):
