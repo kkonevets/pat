@@ -14,7 +14,7 @@ import string
 from itertools import islice
 from operator import itemgetter
 import re, json
-from tqdm import tqdm
+from tqdm import tqdm, tqdm_notebook
 from os.path import join, exists, dirname, realpath, basename
 from glob import glob, iglob
 from os import path
