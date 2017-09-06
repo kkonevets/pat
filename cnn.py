@@ -11,8 +11,10 @@ class TextCNN(object):
                  embedding_size,
                  sent_filter_sizes=[2, 3, 4, 5],
                  sent_nb_filter=15,
+                 sent_embed_size=None,
                  doc_filter_sizes=[1, 2, 3],
                  doc_nb_filter=10,
+                 doc_embed_size=None,
                  sent_kmax=10,
                  doc_kmax=10,
                  learning_rate=0.001):
@@ -23,8 +25,10 @@ class TextCNN(object):
             self.embedding_size = embedding_size
             self.sent_filter_sizes = sent_filter_sizes
             self.sent_nb_filter = sent_nb_filter
+            self.sent_embed_size = sent_embed_size
             self.doc_filter_sizes = doc_filter_sizes
             self.doc_nb_filter = doc_nb_filter
+            self.doc_embed_size = doc_embed_size
             self.sent_kmax = sent_kmax
             self.doc_kmax = doc_kmax
             self.learning_rate = learning_rate
@@ -48,20 +52,27 @@ class TextCNN(object):
                 self.embedding_init = self.LT.assign(self.embedding_placeholder)
 
             with tf.variable_scope('sent'):
-                self._create_sharable_weights(sent_filter_sizes, embedding_size,
-                                              sent_nb_filter)
-                self.sent_embedding_size = tf.convert_to_tensor(
+                self.sent_out_size = tf.convert_to_tensor(
                     sent_kmax * sent_nb_filter * len(sent_filter_sizes))
+                self._create_sharable_weights(sent_filter_sizes, embedding_size,
+                                              sent_nb_filter, 
+                                              [self.sent_out_size.eval(), self.sent_embed_size])
 
             with tf.variable_scope('doc'):
-                self._create_sharable_weights(doc_filter_sizes,
-                                              self.sent_embedding_size.eval(),
-                                              doc_nb_filter)
-                self.doc_embedding_size = tf.convert_to_tensor(
+                self.doc_out_size = tf.convert_to_tensor(
                     doc_kmax * doc_nb_filter * len(doc_filter_sizes))
+                if self.sent_embed_size is None:
+                    sent_size = self.sent_out_size.eval()
+                else:
+                    sent_size = self.sent_embed_size
+                self._create_sharable_weights(doc_filter_sizes, sent_size,
+                                              doc_nb_filter,
+                                              [self.doc_out_size.eval(), self.doc_embed_size])
 
-        print('sent_embedding_size %s' % self.sent_embedding_size.eval())
-        print('doc_embedding_size %s' % self.doc_embedding_size.eval())
+        print('sent_out_size %s, doc_out_size %s' % 
+            (self.sent_out_size.eval(), self.doc_out_size.eval()))
+        print('sent_embed_size %s, doc_embed_size %s' % 
+            (self.sent_embed_size, self.doc_embed_size))
             
     def inference(self, X):
         """ This is the forward calculation from batch X to doc embeddins """
@@ -72,9 +83,10 @@ class TextCNN(object):
         with tf.variable_scope('sent'):
 
             def convolv_on_sents(embeds):
+                add_fc = self.sent_embed_size is not None
                 return self._convolv_on_embeddings(
                     embeds, self.sent_filter_sizes, self.sent_nb_filter,
-                    self.sent_kmax)
+                    self.sent_kmax, add_fc)
 
             # iter over each document
             self.sent_embed = tf.map_fn(
@@ -86,12 +98,11 @@ class TextCNN(object):
 
         with tf.variable_scope('doc'):
             # finally, convolv on documents
+            add_fc = self.doc_embed_size is not None
             self.doc_embed = self._convolv_on_embeddings(
                 self.sent_embed, self.doc_filter_sizes, self.doc_nb_filter,
-                self.doc_kmax)
+                self.doc_kmax, add_fc)
             # doc_embed shape is [batch, doc_kmax*doc_nb_filter*len(doc_filter_sizes), 1]
-
-#         tf.contrib.layers.fully_connected(self.doc_embed, 128)
             
         doc_embed_normalized = tf.nn.l2_normalize(
             self.doc_embed, dim=1, name='doc_embed_normalized')
@@ -101,8 +112,12 @@ class TextCNN(object):
     def loss(self, X):
         with tf.name_scope("loss"):
             doc_embed_normalized = self.inference(X)
+            if self.doc_embed_size is not None:
+                doc_size = tf.convert_to_tensor(self.doc_embed_size)
+            else:
+                doc_size = self.doc_out_size
             self.anchor, self.positive, self.negative = tf.unstack(
-                tf.reshape(doc_embed_normalized, [-1, 3, self.doc_embedding_size]),
+                tf.reshape(doc_embed_normalized, [-1, 3, doc_size]),
                 3, 1)
             _loss = triplet_loss(self.anchor, self.positive, self.negative)
         return _loss
@@ -115,7 +130,7 @@ class TextCNN(object):
                 self.gradients, global_step=self.global_step)
         return apply_gradient_op
 
-    def _convolv_on_embeddings(self, embeds, filter_sizes, nb_filter, kmax):
+    def _convolv_on_embeddings(self, embeds, filter_sizes, nb_filter, kmax, add_fc):
         """
         Create a convolution + k-max pool layer for each filter size, then concat and vectorize.
         embeds shape is [batch, (n_words or n_sents), embedding_size, 1]
@@ -156,11 +171,18 @@ class TextCNN(object):
             batch = tf.shape(embeds)[0]
             sent_embed = tf.reshape(trans, [batch, -1, 1])
             # sent_embed shape is [batch, kmax*nb_filter*len(filter_sizes), 1]
+            # sent_embed = tf.expand_dims(tf.squeeze(sent_embed), 2)
+
+        if add_fc:
+            with tf.variable_scope('fully_connected', reuse=True):
+                sent_embed = tf.matmul(tf.squeeze(sent_embed), tf.get_variable('fc_W')) + \
+                    tf.get_variable('fc_b')
+                sent_embed = tf.expand_dims(sent_embed, 2)
 
         return sent_embed
 
     def _create_sharable_weights(self, filter_sizes, embedding_size,
-                                 nb_filter):
+                                 nb_filter, fc_shape):
         """ Create sharable weights for each type of convolution """
         with tf.name_scope('sharable_weights'):
             for fsize in filter_sizes:
@@ -172,7 +194,15 @@ class TextCNN(object):
                         'W', filter_shape, initializer=initializer)
                     bias_init = tf.get_variable(
                         'b', initializer=tf.constant(0.1, shape=[nb_filter]))
-    
+
+            with tf.variable_scope('fully_connected'):
+                if fc_shape[1] is not None:
+                    initializer = tf.contrib.layers.xavier_initializer(uniform=True)
+                    weights_init = tf.get_variable(
+                        'fc_W', fc_shape, initializer=initializer)
+                    bias_init = tf.get_variable(
+                        'fc_b', shape=[fc_shape[1]], initializer=tf.zeros_initializer)
+
     def init_lookup_table(self, word_embeddings):
         # Assign word embeddings to variable W
         self.sess.run(
