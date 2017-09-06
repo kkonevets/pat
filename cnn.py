@@ -54,25 +54,25 @@ class TextCNN(object):
             with tf.variable_scope('sent'):
                 self.sent_out_size = tf.convert_to_tensor(
                     sent_kmax * sent_nb_filter * len(sent_filter_sizes))
+                fc_shape = [self.sent_out_size.eval(), sent_embed_size]
                 self._create_sharable_weights(sent_filter_sizes, embedding_size,
-                                              sent_nb_filter, 
-                                              [self.sent_out_size.eval(), self.sent_embed_size])
+                                              sent_nb_filter, fc_shape)
 
             with tf.variable_scope('doc'):
                 self.doc_out_size = tf.convert_to_tensor(
                     doc_kmax * doc_nb_filter * len(doc_filter_sizes))
-                if self.sent_embed_size is None:
+                if sent_embed_size is None:
                     sent_size = self.sent_out_size.eval()
                 else:
-                    sent_size = self.sent_embed_size
+                    sent_size = sent_embed_size
+                fc_shape = [self.doc_out_size.eval(), doc_embed_size]
                 self._create_sharable_weights(doc_filter_sizes, sent_size,
-                                              doc_nb_filter,
-                                              [self.doc_out_size.eval(), self.doc_embed_size])
+                                              doc_nb_filter, fc_shape)
 
         print('sent_out_size %s, doc_out_size %s' % 
             (self.sent_out_size.eval(), self.doc_out_size.eval()))
         print('sent_embed_size %s, doc_embed_size %s' % 
-            (self.sent_embed_size, self.doc_embed_size))
+            (self.sent_embed_size, doc_embed_size))
             
     def inference(self, X):
         """ This is the forward calculation from batch X to doc embeddins """
