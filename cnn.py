@@ -168,7 +168,6 @@ class TextCNN(object):
                     filter_shape = [fsize, embedding_size, 1, nb_filter]
                     initializer = tf.contrib.layers.xavier_initializer_conv2d(
                         uniform=True)
-#                     initializer=tf.truncated_normal(stddev=0.1))
                     weights_init = tf.get_variable(
                         'W', filter_shape, initializer=initializer)
                     bias_init = tf.get_variable(
