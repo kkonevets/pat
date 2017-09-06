@@ -177,6 +177,7 @@ class TextCNN(object):
             with tf.variable_scope('fully_connected', reuse=True):
                 sent_embed = tf.matmul(tf.squeeze(sent_embed), tf.get_variable('fc_W')) + \
                     tf.get_variable('fc_b')
+                sent_embed = tf.nn.relu(sent_embed, name="relu")
                 sent_embed = tf.expand_dims(sent_embed, 2)
 
         return sent_embed
