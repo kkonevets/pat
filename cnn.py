@@ -127,9 +127,11 @@ class TextCNN(object):
     def optimize(self, X):
         with tf.name_scope("optimize"):
             self.loss_op = self.loss(X)
-            self.gradients = self.optimizer.compute_gradients(self.loss_op)
-            apply_gradient_op = self.optimizer.apply_gradients(
-                self.gradients, global_step=self.global_step)
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                self.gradients = self.optimizer.compute_gradients(self.loss_op)
+                apply_gradient_op = self.optimizer.apply_gradients(
+                    self.gradients, global_step=self.global_step)
         return apply_gradient_op
 
     def _convolv_on_embeddings(self, embeds, filter_sizes, nb_filter, kmax, add_fc):
@@ -178,8 +180,8 @@ class TextCNN(object):
         #     layer = tf.nn.batch_normalization(layer, 
         #         center=True, scale=True, is_training=self.phase, scope='bn')
 
-        if add_fc:
-            with tf.variable_scope('fully_connected', reuse=True):
+        with tf.variable_scope('fully_connected', reuse=True):
+            if add_fc:
                 layer = tf.matmul(tf.squeeze(layer), tf.get_variable('fc_W')) + \
                     tf.get_variable('fc_b')
             layer = tf.nn.relu(layer, name="relu")
