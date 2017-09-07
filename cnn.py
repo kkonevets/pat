@@ -17,7 +17,8 @@ class TextCNN(object):
                  doc_embed_size=None,
                  sent_kmax=10,
                  doc_kmax=10,
-                 learning_rate=0.001):
+                 learning_rate=0.001,
+                 phase=True):
         with tf.name_scope('init_model'):
             self.n_sents = n_sents
             self.n_words = n_words
@@ -32,6 +33,7 @@ class TextCNN(object):
             self.sent_kmax = sent_kmax
             self.doc_kmax = doc_kmax
             self.learning_rate = learning_rate
+            self.phase = tf.placeholder(tf.bool, name='phase') # batch norm phase - train or test
             self.sess = tf.get_default_session()
             
             assert (self.sess is not None and 
@@ -169,18 +171,21 @@ class TextCNN(object):
             # Vectorize filters for each sent to get sent embeddings
             trans = tf.transpose(h_pool, perm=[0, 2, 3, 1])
             batch = tf.shape(embeds)[0]
-            sent_embed = tf.reshape(trans, [batch, -1, 1])
-            # sent_embed shape is [batch, kmax*nb_filter*len(filter_sizes), 1]
-            # sent_embed = tf.expand_dims(tf.squeeze(sent_embed), 2)
+            layer = tf.reshape(trans, [batch, -1, 1])
+            # layer shape is [batch, kmax*nb_filter*len(filter_sizes), 1]
+
+        # with tf.variable_scope('batch_norm', reuse=True):
+        #     layer = tf.nn.batch_normalization(layer, 
+        #         center=True, scale=True, is_training=self.phase, scope='bn')
 
         if add_fc:
             with tf.variable_scope('fully_connected', reuse=True):
-                sent_embed = tf.matmul(tf.squeeze(sent_embed), tf.get_variable('fc_W')) + \
+                layer = tf.matmul(tf.squeeze(layer), tf.get_variable('fc_W')) + \
                     tf.get_variable('fc_b')
-                sent_embed = tf.nn.relu(sent_embed, name="relu")
-                sent_embed = tf.expand_dims(sent_embed, 2)
+            layer = tf.nn.relu(layer, name="relu")
+            layer = tf.expand_dims(layer, 2)
 
-        return sent_embed
+        return layer
 
     def _create_sharable_weights(self, filter_sizes, embedding_size,
                                  nb_filter, fc_shape):
@@ -203,6 +208,10 @@ class TextCNN(object):
                         'fc_W', fc_shape, initializer=initializer)
                     bias_init = tf.get_variable(
                         'fc_b', shape=[fc_shape[1]], initializer=tf.zeros_initializer)
+
+            # with tf.variable_scope('batch_norm'):
+            #     1
+
 
     def init_lookup_table(self, word_embeddings):
         # Assign word embeddings to variable W
