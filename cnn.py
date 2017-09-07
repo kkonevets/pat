@@ -180,8 +180,8 @@ class TextCNN(object):
         #     layer = tf.nn.batch_normalization(layer, 
         #         center=True, scale=True, is_training=self.phase, scope='bn')
 
-        with tf.variable_scope('fully_connected', reuse=True):
-            if add_fc:
+        if add_fc:
+            with tf.variable_scope('fully_connected', reuse=True):
                 layer = tf.matmul(tf.squeeze(layer), tf.get_variable('fc_W')) + \
                     tf.get_variable('fc_b')
             layer = tf.nn.relu(layer, name="relu")
