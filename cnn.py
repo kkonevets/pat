@@ -176,9 +176,9 @@ class TextCNN(object):
             layer = tf.reshape(trans, [batch, -1, 1])
             # layer shape is [batch, kmax*nb_filter*len(filter_sizes), 1]
 
-        # with tf.variable_scope('batch_norm', reuse=True):
-        #     layer = tf.nn.batch_normalization(layer, 
-        #         center=True, scale=True, is_training=self.phase, scope='bn')
+        # layer = tf.contrib.layers.batch_norm(layer, 
+        #     center=True, scale=True, is_training=self.phase, 
+        #     scope='bn', reuse=True)
 
         if add_fc:
             with tf.variable_scope('fully_connected', reuse=True):
@@ -211,9 +211,8 @@ class TextCNN(object):
                     bias_init = tf.get_variable(
                         'fc_b', shape=[fc_shape[1]], initializer=tf.zeros_initializer)
 
-            # with tf.variable_scope('batch_norm'):
+            # with tf.variable_scope('bn'):
             #     1
-
 
     def init_lookup_table(self, word_embeddings):
         # Assign word embeddings to variable W

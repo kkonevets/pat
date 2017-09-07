@@ -1,0 +1,10 @@
+sent_filter_sizes=[1, 2, 3, 4, 5],
+sent_nb_filter=10,
+sent_embed_size=128,
+doc_filter_sizes=[1, 2, 3, 4, 5]
+doc_nb_filter=10
+doc_kmax=4
+doc_embed_size=200,
+sent_kmax=4,
+
+
