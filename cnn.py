@@ -18,8 +18,7 @@ class TextCNN(object):
                  doc_embed_size=200,
                  sent_kmax=10,
                  doc_kmax=10,
-                 learning_rate=0.001,
-                 phase=True):
+                 learning_rate=0.001):
         with tf.name_scope('init_model'):
             self.n_sents = n_sents
             self.n_words = n_words
