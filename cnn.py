@@ -9,15 +9,15 @@ class TextCNN(object):
                  n_words,
                  vocab_size,
                  embedding_size,
-                 batch_size = 64,
+                 batch_size,
                  sent_filter_sizes=[1, 2, 3, 4, 5],
                  sent_nb_filter=10,
                  sent_embed_size=128,
                  doc_filter_sizes=[1, 2, 3, 4, 5],
                  doc_nb_filter=10,
                  doc_embed_size=200,
-                 sent_kmax=10,
-                 doc_kmax=10,
+                 sent_kmax=4,
+                 doc_kmax=4,
                  learning_rate=0.001):
         with tf.name_scope('init_model'):
             self.n_sents = n_sents
@@ -37,7 +37,7 @@ class TextCNN(object):
             self.phase = tf.placeholder(tf.bool, name='phase') # batch norm phase - train or test
             self.sess = tf.get_default_session()
             
-            assert (self.sess is not None and 
+            assert(self.sess is not None and 
                     not self.sess._closed), 'tensorflow session should be active'
             
             self.global_step = tf.get_variable("global_step", initializer=tf.constant(0), trainable=False)
