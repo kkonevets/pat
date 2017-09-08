@@ -9,12 +9,13 @@ class TextCNN(object):
                  n_words,
                  vocab_size,
                  embedding_size,
+                 batch_size = 64,
                  sent_filter_sizes=[2, 3, 4, 5],
-                 sent_nb_filter=15,
-                 sent_embed_size=None,
-                 doc_filter_sizes=[1, 2, 3],
+                 sent_nb_filter=10,
+                 sent_embed_size=128,
+                 doc_filter_sizes=[1, 2, 3, 4, 5],
                  doc_nb_filter=10,
-                 doc_embed_size=None,
+                 doc_embed_size=200,
                  sent_kmax=10,
                  doc_kmax=10,
                  learning_rate=0.001,
@@ -24,6 +25,7 @@ class TextCNN(object):
             self.n_words = n_words
             self.vocab_size = vocab_size
             self.embedding_size = embedding_size
+            self.batch_size = batch_size
             self.sent_filter_sizes = sent_filter_sizes
             self.sent_nb_filter = sent_nb_filter
             self.sent_embed_size = sent_embed_size
@@ -90,7 +92,6 @@ class TextCNN(object):
                     embeds, self.sent_filter_sizes, self.sent_nb_filter,
                     self.sent_kmax, add_fc)
 
-            # iter over each document
             self.sent_embed = tf.map_fn(
                 convolv_on_sents,
                 embedded_words_expanded,
@@ -127,11 +128,9 @@ class TextCNN(object):
     def optimize(self, X):
         with tf.name_scope("optimize"):
             self.loss_op = self.loss(X)
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                self.gradients = self.optimizer.compute_gradients(self.loss_op)
-                apply_gradient_op = self.optimizer.apply_gradients(
-                    self.gradients, global_step=self.global_step)
+            self.gradients = self.optimizer.compute_gradients(self.loss_op)
+            apply_gradient_op = self.optimizer.apply_gradients(
+                self.gradients, global_step=self.global_step)
         return apply_gradient_op
 
     def _convolv_on_embeddings(self, embeds, filter_sizes, nb_filter, kmax, add_fc):
@@ -155,7 +154,6 @@ class TextCNN(object):
 
                 h = tf.nn.relu(tf.nn.bias_add(conv, bias_init), name="relu")
 #                 h shape is [batch, n_words - fsize + 1, 1, nb_filter]
-#             tf.summary.histogram("relu", h)
 
             with tf.name_scope('%s-maxpool-fsize-%s' % (kmax, fsize)):
                 # k-maxpooling over the outputs
@@ -176,15 +174,11 @@ class TextCNN(object):
             layer = tf.reshape(trans, [batch, -1, 1])
             # layer shape is [batch, kmax*nb_filter*len(filter_sizes), 1]
 
-        # layer = tf.contrib.layers.batch_norm(layer, 
-        #     center=True, scale=True, is_training=self.phase, 
-        #     scope='bn', reuse=True)
-
         if add_fc:
             with tf.variable_scope('fully_connected', reuse=True):
                 layer = tf.matmul(tf.squeeze(layer), tf.get_variable('fc_W')) + \
                     tf.get_variable('fc_b')
-            layer = tf.nn.relu(layer, name="relu")
+            layer = tf.nn.relu(layer, name="relu")    
             layer = tf.expand_dims(layer, 2)
 
         return layer
@@ -210,9 +204,6 @@ class TextCNN(object):
                         'fc_W', fc_shape, initializer=initializer)
                     bias_init = tf.get_variable(
                         'fc_b', shape=[fc_shape[1]], initializer=tf.zeros_initializer)
-
-            # with tf.variable_scope('bn'):
-            #     1
 
     def init_lookup_table(self, word_embeddings):
         # Assign word embeddings to variable W
