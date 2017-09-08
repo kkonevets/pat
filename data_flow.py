@@ -1,5 +1,6 @@
 import tensorflow as tf
 from common import *
+import random
 
 
 def parse_csv(text, doc_shape):
@@ -44,3 +45,27 @@ def input_pipeline(triples, doc_shape, batch_size, num_epochs=1, num_threads=cpu
     tf.transpose([anchor, positive, negative],
                  [1, 0, 2, 3]), [-1, doc_shape[0], doc_shape[1]], name='X')
     return X, fnames
+
+
+def full_name(_id):
+    return join(DATA_FOLDER, 'corpus/%s.txt' % _id)
+
+def random_triples(sims, ids, num_epochs=1, seed=0):
+    """
+    Get random triples, select negatives at random in each epoch.
+    Output: [anchor, positive, negative]
+    """
+    random.seed(0)
+    ixs = list(range(len(ids)))
+    for ep in range(num_epochs):
+        random.shuffle(ixs)
+        it = iter(ixs)
+        for k, v in tqdm(sims.items()):
+            exclude = [full_name(i) for i in [k] + v]
+            for vi in v:
+                ix = next(it)
+                _neg = ids[ix]
+                while _neg in exclude:
+                    ix = next(it)
+                    _neg = ids[ix]
+                yield [full_name(k), full_name(vi), _neg]
