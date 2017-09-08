@@ -28,7 +28,7 @@ def read_input_tuple(filename_queue, doc_shape):
 
 def input_pipeline(triples, doc_shape, batch_size, num_epochs=1, num_threads=cpu_count, shuffle=True, seed=0):
     filename_queue = tf.train.input_producer(
-        triples, num_epochs=num_epochs, capacity=128, shuffle=shuffle, seed=seed)
+        triples, num_epochs=num_epochs, capacity=64, shuffle=shuffle, seed=seed)
     example = read_input_tuple(filename_queue, doc_shape)
 
     min_after_dequeue = 10000
