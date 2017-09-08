@@ -10,7 +10,7 @@ class TextCNN(object):
                  vocab_size,
                  embedding_size,
                  batch_size = 64,
-                 sent_filter_sizes=[2, 3, 4, 5],
+                 sent_filter_sizes=[1, 2, 3, 4, 5],
                  sent_nb_filter=10,
                  sent_embed_size=128,
                  doc_filter_sizes=[1, 2, 3, 4, 5],
@@ -72,9 +72,9 @@ class TextCNN(object):
                 self._create_sharable_weights(doc_filter_sizes, sent_size,
                                               doc_nb_filter, fc_shape)
 
-        print('sent_out_size %s, doc_out_size %s' % 
+        logging.info('sent_out_size %s, doc_out_size %s' % 
             (self.sent_out_size.eval(), self.doc_out_size.eval()))
-        print('sent_embed_size %s, doc_embed_size %s' % 
+        logging.info('sent_embed_size %s, doc_embed_size %s' % 
             (self.sent_embed_size, doc_embed_size))
             
     def inference(self, X):
