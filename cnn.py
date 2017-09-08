@@ -182,9 +182,12 @@ class TextCNN(object):
 
         return layer
 
+    def _batch_norm(self, X):
+        pass
+
     def _create_sharable_weights(self, filter_sizes, embedding_size,
                                  nb_filter, fc_shape):
-        """ Create sharable weights for each type of convolution """
+        """ Create sharable weights for each type of layer """
         with tf.name_scope('sharable_weights'):
             for fsize in filter_sizes:
                 with tf.variable_scope("conv_weights_fsize-%s" % fsize):
