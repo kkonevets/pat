@@ -214,7 +214,7 @@ class TextCNN(object):
             feed_dict={self.embedding_placeholder: word_embeddings})
 
     def init_summary(self, add_histograms=False):
-        self.saver = tf.train.Saver(tf.trainable_variables())
+        self.saver = tf.train.Saver(tf.trainable_variables() + [self.LT])
         # Create summaries to visualize weights
         tf.summary.scalar("loss", self.loss_op)
         if add_histograms:
