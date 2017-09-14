@@ -121,7 +121,7 @@ class TextCNN(object):
             self.anchor, self.positive, self.negative = tf.unstack(
                 tf.reshape(doc_embed_normalized, [-1, 3, doc_size]),
                 3, 1)
-            _loss = triplet_loss(self.anchor, self.positive, self.negative)
+            _loss = cosine_triplet_loss(self.anchor, self.positive, self.negative)
         return _loss
 
     def optimize(self, X):
@@ -255,4 +255,3 @@ def triplet_loss(anchor_embed,
         loss = tf.reduce_mean(loss)
 
     return loss
-    
