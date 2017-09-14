@@ -121,7 +121,7 @@ class TextCNN(object):
             self.anchor, self.positive, self.negative = tf.unstack(
                 tf.reshape(doc_embed_normalized, [-1, 3, doc_size]),
                 3, 1)
-            _loss = cosine_triplet_loss(self.anchor, self.positive, self.negative)
+            _loss = triplet_loss(self.anchor, self.positive, self.negative)
         return _loss
 
     def optimize(self, X):
@@ -242,9 +242,10 @@ class TextCNN(object):
 def triplet_loss(anchor_embed,
                  positive_embed,
                  negative_embed,
-                 margin=0.2):
+                 margin=0.5):
     """
     input: Three L2 normalized tensors of shape [None, dim], compute on a batch
+    0 <= margin <=2
     output: float
     """
     with tf.variable_scope('triplet_loss'):
