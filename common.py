@@ -119,7 +119,7 @@ def softmax(w, t = 1.0):
 def evaluate(preds, gold):
         
     result = []
-    for key, val in preds.items():
+    for key, val in tqdm(preds.items()):
         true_val = gold[key]
         gold_len = len(true_val)
 
