@@ -140,19 +140,7 @@ def evaluate(preds, gold):
     
     print('mean')
     print(result.mean(axis=0))
-    
-    ax = result['acc10'].hist()
-    ax.set_xlabel("acc10")
-    plt.show()
-    
-    ax = result['acc20'].hist()
-    ax.set_xlabel("acc20")
-    plt.show()
-    
-    ax = result['acc200'].hist()
-    ax.set_xlabel("acc200")
-    plt.show()
-    
+        
     return result
 
 
