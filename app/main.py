@@ -3,13 +3,13 @@ import numpy as np
 
 app = Flask(__name__)
 
+FNAME = '../data/saved/doc_embeds_reshaped_1ep_0.5.npy'
 
 @app.before_first_request
 def load_huge_file():
-    loaded_data = np.load('../data/saved/doc_embeds_reshaped_1ep_0.5.npy')
-    print("Huge data set loaded!")
     global vectors
-    vectors = loaded_data
+    vectors = np.load(FNAME, mmap_mode='r')
+    print("Huge data set loaded!")
 
 
 load_huge_file()
@@ -18,7 +18,8 @@ load_huge_file()
 @app.route("/")
 def calc():
     global vectors
-    return 'using cached vectors, len=%s' % len(vectors)
+    l = len(vectors)
+    return 'using cached vectors, len=%s' % l
 
 
 if __name__ == "__main__":
