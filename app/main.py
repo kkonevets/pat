@@ -16,7 +16,7 @@ load_huge_file()
 
 
 @app.route("/")
-def hello():
+def calc():
     global vectors
     return 'using cached vectors, len=%s' % len(vectors)
 
