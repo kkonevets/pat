@@ -1,10 +1,18 @@
-FROM tiangolo/uwsgi-nginx-flask:python3.6
+FROM tiangolo/uwsgi-nginx-flask:python2.7
 
-RUN apt-get update && apt-get install -y \
-  htop \
-  vim \
-  less 
-RUN pip install numpy
+RUN pip install pandas sklearn scipy redis rq
 RUN mkdir /var/log/uwsgi
 
+RUN apt-get update && apt-get install -y \
+  htop vim less redis-server \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Add demo app
 COPY ./app /app
+WORKDIR /app
+
+CMD ["/usr/bin/supervisord"]
