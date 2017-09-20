@@ -11,8 +11,8 @@ import ast
 
 from messaging import send_msg, recv_msg
 
-VEC_PATH = '../data/saved/doc_embeds_reshaped_1ep_0.5.npy'
-IDS_PATH = '../data/saved/fnames_1ep_0.5.npy'
+VEC_PATH = '/data/saved/doc_embeds_reshaped_1ep_0.5.npy'
+IDS_PATH = '/data/saved/fnames_1ep_0.5.npy'
 
 vectors = np.load(VEC_PATH)
 # precompute dot products
