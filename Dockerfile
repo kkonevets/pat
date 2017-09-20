@@ -1,10 +1,10 @@
 FROM tiangolo/uwsgi-nginx-flask:python2.7
 
-RUN pip install pandas sklearn scipy redis rq
+RUN pip install pandas sklearn scipy
 RUN mkdir /var/log/uwsgi
 
 RUN apt-get update && apt-get install -y \
-  htop vim less redis-server \
+  htop vim less \
   && rm -rf /var/lib/apt/lists/*
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
