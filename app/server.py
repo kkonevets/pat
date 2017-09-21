@@ -14,13 +14,6 @@ from messaging import send_msg, recv_msg
 VEC_PATH = '/data/saved/doc_embeds_reshaped_1ep_0.5.npy'
 IDS_PATH = '/data/saved/fnames_1ep_0.5.npy'
 
-vectors = np.load(VEC_PATH)
-# precompute dot products
-vectors_norm_squared = np.square(vectors).sum(axis=1)
-
-ids = np.load(IDS_PATH)
-names = pd.Series(range(len(ids)), index = ids)
-
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
@@ -42,6 +35,14 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 5000
+
+    vectors = np.load(VEC_PATH)
+    # precompute dot products
+    vectors_norm_squared = np.square(vectors).sum(axis=1)
+
+    ids = np.load(IDS_PATH)
+    names = pd.Series(range(len(ids)), index = ids)
+
 
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
     print('server started')
