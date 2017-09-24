@@ -40,7 +40,8 @@ class TextCNN(object):
             assert(self.sess is not None and
                     not self.sess._closed), 'tensorflow session should be active'
 
-            self.global_step = tf.get_variable("global_step", initializer=tf.constant(0), trainable=False)
+            self.global_step = tf.get_variable("global_step",
+            initializer=tf.constant(0), trainable=False)
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08)
 
