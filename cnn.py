@@ -36,10 +36,10 @@ class TextCNN(object):
             self.learning_rate = learning_rate
             self.phase = tf.placeholder(tf.bool, name='phase') # batch norm phase - train or test
             self.sess = tf.get_default_session()
-            
-            assert(self.sess is not None and 
+
+            assert(self.sess is not None and
                     not self.sess._closed), 'tensorflow session should be active'
-            
+
             self.global_step = tf.get_variable("global_step", initializer=tf.constant(0), trainable=False)
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08)
@@ -72,17 +72,18 @@ class TextCNN(object):
                 self._create_sharable_weights(doc_filter_sizes, sent_size,
                                               doc_nb_filter, fc_shape)
 
-        logging.info('sent_out_size %s, doc_out_size %s' % 
+
+        logging.info('sent_out_size %s, doc_out_size %s' %
             (self.sent_out_size.eval(), self.doc_out_size.eval()))
-        logging.info('sent_embed_size %s, doc_embed_size %s' % 
+        logging.info('sent_embed_size %s, doc_embed_size %s' %
             (self.sent_embed_size, doc_embed_size))
-            
+
     def inference(self, X):
         """ This is the forward calculation from batch X to doc embeddins """
-        
+
         embedded_words = tf.nn.embedding_lookup(self.LT, X)
         embedded_words_expanded = tf.expand_dims(embedded_words, -1)
-        
+
         with tf.variable_scope('sent'):
 
             def convolv_on_sents(embeds):
@@ -105,7 +106,7 @@ class TextCNN(object):
                 self.sent_embed, self.doc_filter_sizes, self.doc_nb_filter,
                 self.doc_kmax, add_fc)
             # doc_embed shape is [batch, doc_kmax*doc_nb_filter*len(doc_filter_sizes), 1]
-            
+
         doc_embed_normalized = tf.nn.l2_normalize(
             self.doc_embed, dim=1, name='doc_embed_normalized')
 
@@ -177,7 +178,7 @@ class TextCNN(object):
             with tf.variable_scope('fully_connected', reuse=True):
                 layer = tf.matmul(tf.squeeze(layer), tf.get_variable('fc_W')) + \
                     tf.get_variable('fc_b')
-            layer = tf.nn.relu(layer, name="relu")    
+            layer = tf.nn.relu(layer, name="relu")
             layer = tf.expand_dims(layer, 2)
 
         return layer
@@ -228,17 +229,17 @@ class TextCNN(object):
         self.train_writer = tf.summary.FileWriter(
             join(DATA_FOLDER, 'summary', 'train',
                  str(datetime.datetime.now())), self.sess.graph)
-    
+
     def add_summary(self, summary, current_step):
         self.train_writer.add_summary(summary, current_step)
-        
+
     def save(self, global_step):
         self.saver.save(
             self.sess,
             join(DATA_FOLDER, 'models', '%s' % str(datetime.datetime.now())),
             global_step=global_step)
 
-        
+
 def triplet_loss(anchor_embed,
                  positive_embed,
                  negative_embed,
