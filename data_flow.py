@@ -15,6 +15,7 @@ def parse_csv(text, doc_shape):
         dense.set_shape(doc_shape)
     return dense
 
+
 def read_input_tuple(filename_queue, doc_shape):
     with tf.name_scope('read_input_tuple'):
         fnames = filename_queue.dequeue()
@@ -25,6 +26,7 @@ def read_input_tuple(filename_queue, doc_shape):
             example.append(arr)
         example.append(fnames)
     return example
+
 
 def input_pipeline(triples, doc_shape, batch_size, num_epochs=1, num_threads=cpu_count, shuffle=True, seed=0):
     filename_queue = tf.train.input_producer(
@@ -46,10 +48,14 @@ def input_pipeline(triples, doc_shape, batch_size, num_epochs=1, num_threads=cpu
     return X, fnames
 
 
-def full_name(_id):
-    return join(DATA_FOLDER, 'corpus/%s.txt' % _id)
+def nameit(_id, with_path=True):
+    if with_path:
+        return join(DATA_FOLDER, 'corpus/%s.txt' % _id)
+    else:
+        return _id
 
-def random_triples(sims, ids, num_epochs=1, seed=0):
+
+def random_triples(sims, ids, num_epochs=1, with_path=True, seed=0):
     """
     Get random triples, select negatives at random in each epoch.
     Output: [anchor, positive, negative]
@@ -60,11 +66,27 @@ def random_triples(sims, ids, num_epochs=1, seed=0):
         random.shuffle(ixs)
         it = iter(ixs)
         for k, v in tqdm(sims.items()):
-            exclude = [full_name(i) for i in [k] + v]
+            exclude = [nameit(i, with_path) for i in [k] + v]
             for vi in v:
                 ix = next(it)
                 _neg = ids[ix]
                 while _neg in exclude:
                     ix = next(it)
                     _neg = ids[ix]
-                yield [full_name(k), full_name(vi), _neg]
+                if not with_path:
+                    _neg = basename(_neg).split('.')[0]
+                yield [nameit(k, with_path), nameit(vi, with_path), _neg]
+
+
+def gen_batches(embeds, triples, batch_size):
+    """ Divide input data into batches.
+
+    :param data: input data
+    :param batch_size: size of each batch
+
+    :return: data divided into batches
+    """
+    triples = np.array(triples)
+
+    for i in range(0, triples.shape[0], batch_size):
+        yield embeds.loc[triples[i:i+batch_size].reshape(-1), :]
