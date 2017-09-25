@@ -20,6 +20,7 @@ from glob import glob, iglob
 from os import path
 from gzip import GzipFile
 from pprint import pprint
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -101,10 +102,10 @@ def get_all_docs(data_folder, ext='txt'):
     if not exists(fname):
         all_docs = glob(data_folder + '/**/*.%s' % ext, recursive=True)
         all_docs = sorted(all_docs)
-        with open(fname, mode='wt', encoding='utf-8') as f:
+        with open(fname, mode='wt') as f:
             f.write('\n'.join(all_docs))
     else:
-        with open(fname, mode='r', encoding='utf-8') as f:
+        with open(fname, mode='r') as f:
             all_docs = f.read().splitlines()
     
     return all_docs
