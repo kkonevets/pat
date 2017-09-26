@@ -67,12 +67,12 @@ def random_triples(sims, ids, num_epochs=1, with_path=True, seed=0):
         random.shuffle(ixs)
         it = iter(ixs)
         for k, v in tqdm(sims.items()):
-            if k not in ids_set:
-                continue
+            # if k not in ids_set:
+            #     continue
             exclude = [nameit(i, with_path) for i in [k] + v]
             for vi in v:
-                if vi not in ids_set:
-                    continue                
+                # if vi not in ids_set:
+                #     continue                
                 ix = next(it)
                 _neg = ids[ix]
                 while _neg in exclude:
