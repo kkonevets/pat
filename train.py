@@ -92,13 +92,15 @@ class FCNN(Trainer):
 
     def inference(self, X):
         h = X
-        for i, size in enumerate(self.sizes):
+        for i, size in enumerate(self.sizes[:-1]):
             scope = 'layer%s_%s' % (i, size)
             if self.batch_norm:
                 h = self.dense_batch_relu(h, size, self.phase, scope)
             else:
                 h = self.dense_relu(h, size, scope)
-        
+        scope = 'layer%s_%s' % (len(self.sizes)-1, self.sizes[-1])
+        h = self.dense(h, self.sizes[-1], scope)
+
         self.doc_embed_normalized = tf.nn.l2_normalize(
             h, dim=1, name='doc_embed_normalized')
         return self.doc_embed_normalized
