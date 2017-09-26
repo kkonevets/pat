@@ -25,6 +25,22 @@ class Trainer(object):
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08)
 
+    def dense(self, x, size, scope):
+        return tf.contrib.layers.fully_connected(x, size, 
+            activation_fn=None, scope=scope)
+
+    def dense_relu(self, x, size, scope):
+        with tf.variable_scope(scope):
+            h1 = self.dense(x, size, 'dense')
+            return tf.nn.relu(h1, 'relu')
+
+    def dense_batch_relu(self, x, size, phase, scope):
+        with tf.variable_scope(scope):
+            h1 = self.dense(x, size, 'dense')
+            h2 = tf.contrib.layers.batch_norm(h1, 
+                center=True, scale=True, is_training=phase, scope='bn')
+        return tf.nn.relu(h2, 'relu')
+
     def inference(self, X):
         pass
 
@@ -74,33 +90,14 @@ class FCNN(Trainer):
         with tf.name_scope('init_model'):
             self.sizes = sizes
 
-    def dense(self, x, size, scope):
-        return tf.contrib.layers.fully_connected(x, size, 
-            activation_fn=None, scope=scope)
-
-    def dense_relu(self, x, size, scope):
-        with tf.variable_scope(scope):
-            h1 = self.dense(x, size, 'dense')
-            return tf.nn.relu(h1, 'relu')
-
-    def dense_batch_relu(self, x, size, phase, scope):
-        with tf.variable_scope(scope):
-            h1 = self.dense(x, size, 'dense')
-            h2 = tf.contrib.layers.batch_norm(h1, 
-                center=True, scale=True, is_training=phase, scope='bn')
-        return tf.nn.relu(h2, 'relu')
-
     def inference(self, X):
         h = X
-        for i, size in enumerate(self.sizes[:-1]):
+        for i, size in enumerate(self.sizes):
             scope = 'layer%s_%s' % (i, size)
             if self.batch_norm:
                 h = self.dense_batch_relu(h, size, self.phase, scope)
             else:
                 h = self.dense_relu(h, size, scope)
-        size = self.sizes[-1]
-        scope = 'layer%s_%s' % (len(self.sizes)-1, size)
-        h = self.dense(h, size, scope)
         
         self.doc_embed_normalized = tf.nn.l2_normalize(
             h, dim=1, name='doc_embed_normalized')
@@ -109,10 +106,10 @@ class FCNN(Trainer):
     def loss(self, X):
         with tf.name_scope("loss"):
             doc_embed_normalized = self.inference(X)
-            anchor, positive, negative = tf.unstack(
+            self.anchor, self.positive, self.negative = tf.unstack(
                 tf.reshape(doc_embed_normalized, [-1, 3, self.sizes[-1]]),
                 3, 1)
-            _loss = triplet_loss(anchor, positive, negative)
+            _loss = triplet_loss(self.anchor, self.positive, self.negative)
         return _loss
 
 
@@ -216,9 +213,8 @@ class TextCNN(Trainer):
                 self.doc_kmax, add_fc)
             # doc_embed shape is [batch, doc_kmax*doc_nb_filter*len(doc_filter_sizes), 1]
 
-        self.doc_embed = tf.contrib.layers.fully_connected(
-            self.doc_embed, int(self.doc_size.eval()), 
-            activation_fn=None, scope='FC')
+        self.doc_embed = self.dense_batch_relu(
+            self.doc_embed, int(self.doc_size.eval()), self.phase, 'FC')
 
         self.doc_embed_normalized = tf.nn.l2_normalize(
             self.doc_embed, dim=1, name='doc_embed_normalized')
@@ -316,7 +312,7 @@ class TextCNN(Trainer):
 def triplet_loss(anchor_embed,
                  positive_embed,
                  negative_embed,
-                 margin=0.5):
+                 margin=0.2):
     """
     input: Three L2 normalized tensors of shape [None, dim], compute on a batch
     0 <= margin <=2
