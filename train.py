@@ -45,7 +45,14 @@ class Trainer(object):
         pass
 
     def loss(self, X):
-        pass
+        with tf.name_scope("loss"):
+            doc_embed_normalized = self.inference(X)
+            dim = doc_embed_normalized.get_shape().as_list()[1]
+            self.anchor, self.positive, self.negative = tf.unstack(
+                tf.reshape(doc_embed_normalized, [-1, 3, dim]),
+                3, 1)
+            _loss = triplet_loss(self.anchor, self.positive, self.negative)
+        return _loss
 
     def optimize(self, X):
         with tf.name_scope("optimize"):
@@ -102,15 +109,6 @@ class FCNN(Trainer):
         self.doc_embed_normalized = tf.nn.l2_normalize(
             h, dim=1, name='doc_embed_normalized')
         return self.doc_embed_normalized
-
-    def loss(self, X):
-        with tf.name_scope("loss"):
-            doc_embed_normalized = self.inference(X)
-            self.anchor, self.positive, self.negative = tf.unstack(
-                tf.reshape(doc_embed_normalized, [-1, 3, self.sizes[-1]]),
-                3, 1)
-            _loss = triplet_loss(self.anchor, self.positive, self.negative)
-        return _loss
 
 
 class TextCNN(Trainer):
@@ -220,15 +218,6 @@ class TextCNN(Trainer):
             self.doc_embed, dim=1, name='doc_embed_normalized')
 
         return self.doc_embed_normalized
-
-    def loss(self, X):
-        with tf.name_scope("loss"):
-            doc_embed_normalized = self.inference(X)
-            anchor, positive, negative = tf.unstack(
-                tf.reshape(doc_embed_normalized, [-1, 3, self.doc_size]),
-                3, 1)
-            _loss = triplet_loss(anchor, positive, negative)
-        return _loss
 
     def _convolv_on_embeddings(self, embeds, filter_sizes, nb_filter, kmax, add_fc):
         """
