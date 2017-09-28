@@ -6,7 +6,7 @@ import tensorflow as tf
 
 import gensim
 from gensim import corpora, models, similarities
-from gensim.models import Word2Vec
+from gensim.models import Word2Vec, Doc2Vec
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
@@ -21,7 +21,7 @@ from os import path
 from gzip import GzipFile
 from pprint import pprint
 import pickle
-import gc
+import gc, ujson
 
 import numpy as np
 import pandas as pd
