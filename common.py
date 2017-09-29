@@ -39,7 +39,7 @@ DATA_FOLDER = '../data/'
 
 logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
 rootLogger = logging.getLogger()
-rootLogger.setLevel(logging.DEBUG)
+rootLogger.setLevel(logging.INFO)
 
 fileHandler = logging.FileHandler("{0}/{1}.log".format(DATA_FOLDER, 'pat'))
 fileHandler.setFormatter(logFormatter)
@@ -73,7 +73,7 @@ def tokenize(file_text, stop_list=stop_list):
     tokens = word_tokenizer.tokenize(file_text)
     if stop_list is not None:
         tokens = [word for word in tokens if word not in stop_list]
-    
+
     return tokens
 
 
@@ -108,7 +108,7 @@ def get_all_docs(data_folder, ext='txt'):
     else:
         with open(fname, mode='r') as f:
             all_docs = f.read().splitlines()
-    
+
     return all_docs
 
 
@@ -119,7 +119,7 @@ def softmax(w, t = 1.0):
 
 
 def evaluate(preds, gold):
-        
+
     result = []
     for key, val in tqdm(preds.items()):
         true_val = gold[key]
@@ -136,35 +136,35 @@ def evaluate(preds, gold):
         result.append([acc10, acc20, acc200])
 
     result = pd.DataFrame(result, columns=['acc10', 'acc20', 'acc200'])
-    
+
     print('median')
     print(result.median(axis=0))
-    
+
     print('mean')
     print(result.mean(axis=0))
-        
+
     return result
 
 
 def send_email(notebook_url,
-              sender='guyos@bk.ru', 
-              receivers=['kkonevets@gmail.com'], 
-              subject='jupyter notification', 
+              sender='guyos@bk.ru',
+              receivers=['kkonevets@gmail.com'],
+              subject='jupyter notification',
               body=''):
-    
+
     import smtplib
     from os.path import expanduser
-    
+
     home = expanduser("~")
     with open(home + '/hash') as f:
         password = f.read().strip()
-    
+
     msg = "\r\n".join([
         "From: %s" % sender,
         "To: %s" % (','.join(receivers)),
         "Subject: %s" %subject,
         "%s" % body,
-        "%s" % notebook_url        
+        "%s" % notebook_url
       ])
 
 
