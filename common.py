@@ -9,7 +9,7 @@ from gensim import corpora, models, similarities
 from gensim.models import Word2Vec, Doc2Vec
 import nltk
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize, RegexpTokenizer
 import string
 from itertools import islice
 from operator import itemgetter
@@ -21,7 +21,7 @@ from os import path
 from gzip import GzipFile
 from pprint import pprint
 import pickle
-import gc, ujson
+import gc, ujson, io
 
 import numpy as np
 import pandas as pd
@@ -56,7 +56,7 @@ simple_stop_list.extend(['что', 'это', 'так', 'вот', 'быть', 'к
 simple_stop_list.extend(list(string.punctuation))
 
 cur_dir = dirname(realpath(__file__))
-with open(join(cur_dir, 'SimilarStopWords.txt'), 'r') as f:
+with io.open(join(cur_dir, 'SimilarStopWords.txt'), 'r', encoding='utf8') as f:
     extra_stop_words = f.read().splitlines()
 
 stop_list = set(simple_stop_list)
@@ -64,6 +64,9 @@ simple_stop_list = set(simple_stop_list)
 stop_list.update(extra_stop_words)
 
 punkts = [s for s in string.punctuation if s not in '.!?']
+
+# only Russian letters and minimum 2 symbols in a word
+word_tokenizer = RegexpTokenizer(u'[а-яА-Яa-zA-Z]{2,}')
 
 def tokenize(file_text, stop_list=stop_list):
     tokens = word_tokenize(file_text)
