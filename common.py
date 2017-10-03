@@ -9,7 +9,7 @@ from gensim import corpora, models, similarities
 from gensim.models import Word2Vec, Doc2Vec
 import nltk
 from nltk.corpus import stopwords
-from nltk.tokenize import RegexpTokenizer
+from nltk.tokenize import word_tokenize, sent_tokenize
 import string
 from itertools import islice
 from operator import itemgetter
@@ -65,12 +65,8 @@ stop_list.update(extra_stop_words)
 
 punkts = [s for s in string.punctuation if s not in '.!?']
 
-# only Russian letters and minimum 2 symbols in a word
-word_tokenizer = RegexpTokenizer(u'[а-яА-Яa-zA-Z]{2,}')
-
-
 def tokenize(file_text, stop_list=stop_list):
-    tokens = word_tokenizer.tokenize(file_text)
+    tokens = word_tokenize(file_text)
     if stop_list is not None:
         tokens = [word for word in tokens if word not in stop_list]
 
