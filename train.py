@@ -7,13 +7,22 @@ class Trainer(object):
     def __init__(self,
                  batch_size,
                  learning_rate=0.001,
-                 batch_norm=True):
+                 batch_norm=True,
+                 loss_function='triplet_loss'):
         with tf.name_scope('init_model'):
             self.summary_date = datetime.datetime.now()
             self.batch_size = batch_size
             self.learning_rate = learning_rate
+
+            possibles = globals().copy()
+            possibles.update(locals())
+            method = possibles.get(loss_function)
+            if not method:
+                 raise NotImplementedError("Method %s not implemented" % loss_function)
+
+            self.loss_function = method
             # batch norm phase - train or test
-            self.phase = tf.placeholder(tf.bool, name='phase') 
+            self.phase = tf.placeholder(tf.bool, name='phase')
             self.batch_norm = batch_norm
             self.sess = tf.get_default_session()
 
@@ -26,7 +35,7 @@ class Trainer(object):
                 learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08)
 
     def dense(self, x, size, scope):
-        return tf.contrib.layers.fully_connected(x, size, 
+        return tf.contrib.layers.fully_connected(x, size,
             activation_fn=None, scope=scope)
 
     def dense_relu(self, x, size, scope):
@@ -37,7 +46,7 @@ class Trainer(object):
     def dense_batch_relu(self, x, size, phase, scope):
         with tf.variable_scope(scope):
             h1 = self.dense(x, size, 'dense')
-            h2 = tf.contrib.layers.batch_norm(h1, 
+            h2 = tf.contrib.layers.batch_norm(h1,
                 center=True, scale=True, is_training=phase, scope='bn')
         return tf.nn.relu(h2, 'relu')
 
@@ -51,7 +60,7 @@ class Trainer(object):
             self.anchor, self.positive, self.negative = tf.unstack(
                 tf.reshape(doc_embed_normalized, [-1, 3, dim]),
                 3, 1)
-            _loss = triplet_loss(self.anchor, self.positive, self.negative)
+            _loss = self.loss_function(self.anchor, self.positive, self.negative)
         return _loss
 
     def optimize(self, X):
@@ -91,9 +100,9 @@ class Trainer(object):
 
 
 class FCNN(Trainer):
-    def __init__(self, batch_size, sizes=[100, 100], 
-        learning_rate=0.001, batch_norm=True):
-        super(FCNN, self).__init__(batch_size, learning_rate, batch_norm)
+    def __init__(self, batch_size, sizes=[100, 100],
+        learning_rate=0.001, batch_norm=True, loss_function='triplet_loss'):
+        super(FCNN, self).__init__(batch_size, learning_rate, batch_norm, loss_function)
         with tf.name_scope('init_model'):
             self.sizes = sizes
 
@@ -105,7 +114,7 @@ class FCNN(Trainer):
                 h = self.dense_batch_relu(h, size, self.phase, scope)
             else:
                 h = self.dense_relu(h, size, scope)
-        
+
         self.doc_embed_normalized = tf.nn.l2_normalize(
             h, dim=1, name='doc_embed_normalized')
         return self.doc_embed_normalized
@@ -126,9 +135,10 @@ class TextCNN(Trainer):
                  doc_embed_size=200,
                  sent_kmax=4,
                  doc_kmax=4,
-                 learning_rate=0.001):
+                 learning_rate=0.001,
+                 loss_function='triplet_loss'):
 
-        super(TextCNN, self).__init__(batch_size, learning_rate)
+        super(TextCNN, self).__init__(batch_size, learning_rate, loss_function=loss_function)
 
         with tf.name_scope('init_model'):
             self.n_sents = n_sents
@@ -312,6 +322,21 @@ def triplet_loss(anchor_embed,
         d_neg = tf.reduce_sum(tf.square(anchor_embed - negative_embed), 1)
 
         loss = tf.maximum(0., margin + d_pos - d_neg)
+        loss = tf.reduce_mean(loss)
+
+    return loss
+
+def exp_loss(anchor_embed, positive_embed, negative_embed):
+    """
+    input: Three L2 normalized tensors of shape [None, dim], compute on a batch
+    output: float
+    """
+    with tf.variable_scope('exp_loss'):
+        cos_pos = tf.reduce_sum(tf.multiply(anchor_embed, positive_embed), 1)
+        cos_neg = tf.reduce_sum(tf.multiply(anchor_embed, negative_embed), 1)
+        delta = cos_pos - cos_neg
+
+        loss = tf.log(1 + tf.exp(-delta))
         loss = tf.reduce_mean(loss)
 
     return loss
