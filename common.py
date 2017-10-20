@@ -120,24 +120,24 @@ def softmax(w, t = 1.0):
 def evaluate(preds, gold):
 
     result = []
+    l = 0
     for key, val in tqdm(preds.items()):
         true_val = gold[key]
-        gold_len = len(true_val)
 
         inter10 = set(val[0:10]).intersection(true_val)
         inter20 = set(val[0:20]).intersection(true_val)
         inter200 = set(val[0:200]).intersection(true_val)
 
-        acc10 = len(inter10)/gold_len
-        acc20 = len(inter20)/gold_len
-        acc200 = len(inter200)/gold_len
+        acc10 = len(inter10)
+        acc20 = len(inter20)
+        acc200 = len(inter200)
 
         result.append([acc10, acc20, acc200])
+        l += len(true_val)
 
     result = pd.DataFrame(result, columns=['acc10', 'acc20', 'acc200'])
 
-    logging.info('\nmedian\n%s' % result.median(axis=0))
-    logging.info('\nmean\n%s' % result.mean(axis=0))
+    logging.info('\n%s' % (result.sum(axis=0)/float(l)))
 
     return result
 
