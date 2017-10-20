@@ -136,11 +136,11 @@ def evaluate(preds, gold):
 
     result = pd.DataFrame(result, columns=['acc10', 'acc20', 'acc200'])
 
-    print('median')
-    print(result.median(axis=0))
+    logging.info('median')
+    logging.info(result.median(axis=0))
 
-    print('mean')
-    print(result.mean(axis=0))
+    logging.info('mean')
+    logging.info(result.mean(axis=0))
 
     return result
 
