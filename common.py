@@ -33,6 +33,7 @@ from joblib import Parallel, delayed
 from joblib.pool import has_shareable_memory
 
 import multiprocessing
+
 cpu_count = multiprocessing.cpu_count()
 
 DATA_FOLDER = '../data/'
@@ -68,6 +69,7 @@ punkts = [s for s in string.punctuation if s not in '.!?']
 # only Russian letters and minimum 2 symbols in a word
 word_tokenizer = RegexpTokenizer(u'[а-яА-Яa-zA-Z]{2,}')
 
+
 def tokenize(file_text, stop_list=stop_list):
     tokens = word_tokenize(file_text)
     if stop_list is not None:
@@ -93,7 +95,7 @@ def natural_keys(text):
     '''
     alist.sort(key=natural_keys) sorts in human order
     '''
-    return [ atoi(c) for c in re.split('(\d+)', text) ]
+    return [atoi(c) for c in re.split('(\d+)', text)]
 
 
 def get_all_docs(data_folder, ext='txt'):
@@ -111,14 +113,13 @@ def get_all_docs(data_folder, ext='txt'):
     return all_docs
 
 
-def softmax(w, t = 1.0):
+def softmax(w, t=1.0):
     e = np.exp(np.array(w).astype(float) / t)
     dist = e / np.sum(e)
     return dist
 
 
 def evaluate(preds, gold):
-
     result = []
     l = 0
     for key, val in tqdm(preds.items()):
@@ -137,17 +138,16 @@ def evaluate(preds, gold):
 
     result = pd.DataFrame(result, columns=['acc10', 'acc20', 'acc200'])
 
-    logging.info('\n%s' % (result.sum(axis=0)/float(l)))
+    logging.info('\n%s' % (result.sum(axis=0) / float(l)))
 
     return result
 
 
 def send_email(notebook_url,
-              sender='guyos@bk.ru',
-              receivers=['kkonevets@gmail.com'],
-              subject='jupyter notification',
-              body=''):
-
+               sender='guyos@bk.ru',
+               receivers=['kkonevets@gmail.com'],
+               subject='jupyter notification',
+               body=''):
     import smtplib
     from os.path import expanduser
 
@@ -158,11 +158,10 @@ def send_email(notebook_url,
     msg = "\r\n".join([
         "From: %s" % sender,
         "To: %s" % (','.join(receivers)),
-        "Subject: %s" %subject,
+        "Subject: %s" % subject,
         "%s" % body,
         "%s" % notebook_url
-      ])
-
+    ])
 
     server = smtplib.SMTP('smtp.mail.ru:587')
     server.ehlo()
