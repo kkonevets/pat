@@ -18,7 +18,7 @@ class Trainer(object):
             possibles.update(locals())
             method = possibles.get(loss_function)
             if not method:
-                 raise NotImplementedError("Method %s not implemented" % loss_function)
+                raise NotImplementedError("Method %s not implemented" % loss_function)
 
             self.loss_function = method
             # batch norm phase - train or test
@@ -26,17 +26,17 @@ class Trainer(object):
             self.batch_norm = batch_norm
             self.sess = tf.get_default_session()
 
-            assert(self.sess is not None and
+            assert (self.sess is not None and
                     not self.sess._closed), 'tensorflow session should be active'
 
             self.global_step = tf.get_variable("global_step",
-                initializer=tf.constant(0), trainable=False)
+                                               initializer=tf.constant(0), trainable=False)
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08)
 
     def dense(self, x, size, scope):
         return tf.contrib.layers.fully_connected(x, size,
-            activation_fn=None, scope=scope)
+                                                 activation_fn=None, scope=scope)
 
     def dense_relu(self, x, size, scope):
         with tf.variable_scope(scope):
@@ -47,7 +47,7 @@ class Trainer(object):
         with tf.variable_scope(scope):
             h1 = self.dense(x, size, 'dense')
             h2 = tf.contrib.layers.batch_norm(h1,
-                center=True, scale=True, is_training=phase, scope='bn')
+                                              center=True, scale=True, is_training=phase, scope='bn')
         return tf.nn.relu(h2, 'relu')
 
     def inference(self, X):
@@ -101,7 +101,7 @@ class Trainer(object):
 
 class FCNN(Trainer):
     def __init__(self, batch_size, sizes=[100, 100],
-        learning_rate=0.001, batch_norm=True, loss_function='triplet_loss'):
+                 learning_rate=0.001, batch_norm=True, loss_function='triplet_loss'):
         super(FCNN, self).__init__(batch_size, learning_rate, batch_norm, loss_function)
         with tf.name_scope('init_model'):
             self.sizes = sizes
@@ -157,8 +157,8 @@ class TextCNN(Trainer):
             # Embedding layer
             with tf.device('/cpu:0'), tf.name_scope("embedding"):
                 self.LT = tf.get_variable('LT',
-                    initializer=tf.constant(0.0, shape=[vocab_size, embedding_size]),
-                    trainable=False)
+                                          initializer=tf.constant(0.0, shape=[vocab_size, embedding_size]),
+                                          trainable=False)
 
                 self.embedding_placeholder = tf.placeholder(
                     tf.float32, [self.vocab_size, self.embedding_size])
@@ -188,9 +188,9 @@ class TextCNN(Trainer):
             self.doc_size = self.doc_out_size
 
         logging.info('sent_out_size %s, doc_out_size %s' %
-            (self.sent_out_size.eval(), self.doc_out_size.eval()))
+                     (self.sent_out_size.eval(), self.doc_out_size.eval()))
         logging.info('sent_embed_size %s, doc_embed_size %s' %
-            (self.sent_embed_size, doc_embed_size))
+                     (self.sent_embed_size, doc_embed_size))
 
     def inference(self, X):
         """ This is the forward calculation from batch X to doc embeddins """
@@ -199,7 +199,6 @@ class TextCNN(Trainer):
         embedded_words_expanded = tf.expand_dims(embedded_words, -1)
 
         with tf.variable_scope('sent'):
-
             def convolv_on_sents(embeds):
                 add_fc = self.sent_embed_size is not None
                 return self._convolv_on_embeddings(
@@ -238,7 +237,7 @@ class TextCNN(Trainer):
         for fsize in filter_sizes:
             with tf.name_scope("conv-%s" % fsize):
                 with tf.variable_scope(
-                        "conv_weights_fsize-%s" % fsize, reuse=True):
+                                "conv_weights_fsize-%s" % fsize, reuse=True):
                     weights_init = tf.get_variable('W')
                     bias_init = tf.get_variable('b')
                 conv = tf.nn.conv2d(
@@ -249,7 +248,7 @@ class TextCNN(Trainer):
                     name="conv")
 
                 h = tf.nn.relu(tf.nn.bias_add(conv, bias_init), name="relu")
-#                 h shape is [batch, n_words - fsize + 1, 1, nb_filter]
+            # h shape is [batch, n_words - fsize + 1, 1, nb_filter]
 
             with tf.name_scope('%s-maxpool-fsize-%s' % (kmax, fsize)):
                 # k-maxpooling over the outputs
@@ -273,7 +272,7 @@ class TextCNN(Trainer):
         if add_fc:
             with tf.variable_scope('fully_connected', reuse=True):
                 layer = tf.matmul(tf.squeeze(layer), tf.get_variable('fc_W')) + \
-                    tf.get_variable('fc_b')
+                        tf.get_variable('fc_b')
             layer = tf.nn.relu(layer, name="relu")
             layer = tf.expand_dims(layer, 2)
 
@@ -325,6 +324,7 @@ def triplet_loss(anchor_embed,
         loss = tf.reduce_mean(loss)
 
     return loss
+
 
 def exp_loss(anchor_embed, positive_embed, negative_embed):
     """
