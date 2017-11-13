@@ -21,7 +21,7 @@ from os import path
 from gzip import GzipFile
 from pprint import pprint
 import pickle
-import gc, ujson, io
+import gc, io
 
 import numpy as np
 import pandas as pd
