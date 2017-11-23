@@ -64,27 +64,21 @@ def save_corpus(ids, prefix, raw=True):
 #     return dic_name, corp_name
 
 
-client = MongoClient()
-db = client.fips
+if __name__ == '__main__':
+    client = MongoClient()
+    db = client.fips
 
-with open('../data/gold_mongo.json', 'r') as f:
-    gold = json.load(f)
+    docs_ids = [doc['_id'] for doc in db.patents.find({}, {'_id': 1})]
 
-docs_ids = [doc['_id'] for doc in db.patents.find({}, {'_id': 1})]
-
-
-parallelizer = Parallel(n_jobs=cpu_count)
-tasks_iterator = (delayed(save_corpus)(list_block, i, raw=True) for
-                  i, list_block in enumerate(grouper(len(docs_ids) // 1000, docs_ids)))
-result = parallelizer(tasks_iterator)
+    parallelizer = Parallel(n_jobs=cpu_count)
+    tasks_iterator = (delayed(save_corpus)(list_block, i, raw=True) for
+                      i, list_block in enumerate(grouper(len(docs_ids) // 1000, docs_ids)))
+    result = parallelizer(tasks_iterator)
 
 
-save_corpus(docs_ids[:10], 'test', True)
+    with open('../data/gold_mongo.json', 'r') as f:
+        gold = json.load(f)
 
-
-topn = db.patents.find({})
-for doc in tqdm(topn, total=len(docs_ids)):
-    break
-
-
-mstem.lemmatize('папа пошел домой  девочки. сегодня')[:-1]
+    topn = db.patents.find({})
+    for doc in tqdm(topn, total=len(docs_ids)):
+        break
