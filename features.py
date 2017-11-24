@@ -129,6 +129,17 @@ def load_sims(fname):
     return sims
 
 
+def tfidf_batch_predict(all_ids, keys, limit=None):
+    preds = {}
+    ixs = [all_ids.index(k) for k in keys]
+    batch = tfidf[corpus[ixs]]
+    for ix, similarities in zip(ixs, index[batch]):
+        limit = limit + 1 if limit else limit
+        sorted_ixs = similarities.argsort()[::-1][:limit]
+        preds[all_ids[ix]] = [all_ids[i] for i in sorted_ixs if i != ix]
+    return preds
+
+
 if __name__ == '__main__':
     client = MongoClient()
     db = client.fips
@@ -159,27 +170,31 @@ if __name__ == '__main__':
 
 #   ####################### fetch ids data ###############################
 
-    ids = load_keys('../data/keys.json')
+    all_ids = load_keys('../data/keys.json')
     sims = load_sims('../data/sims.json')
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
 #   ############################ test  ########################################
 
-    preds = {}
-    ixs = [ids.index(k) for k in gold.keys()]
-    batch = tfidf[corpus[ixs]]
-    for _id, similarities in zip(gold.keys(), index[batch]):
-        sorted_ixs = similarities.argsort()[::-1][:201]
-        preds[_id] = [ids[i] for i in sorted_ixs if ids[i] != _id]
-
+    preds = tfidf_batch_predict(all_ids, gold.keys(), limit=200)
     res = evaluate(preds, gold)
+    """    
+    acc10 0.286738
+    acc20 0.347670
+    acc200 0.573477
+    """
 
 #   ##########################################################################
 
-    for i, similarities in enumerate(index):
-        print(i)
+    for i, keys in enumerate(tqdm(np.array_split(list(sims.keys()), 1000))):
+        ixs = [all_ids.index(k) for k in keys]
+        batch = tfidf[corpus[ixs]]
+        chunk = np.array(index[batch])
+        np.save('../data/cosines/%s.npy' % i, chunk)
 
 
 #   #############################################################################
 
+    med_si = np.median([len(v) for v in sims.values()])
+    len(sims) * med_si
