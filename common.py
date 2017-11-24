@@ -115,7 +115,7 @@ def softmax(w, t=1.0):
 def evaluate(preds, gold):
     result = []
     l = 0
-    for key, val in tqdm(preds.items()):
+    for key, val in preds.items():
         true_val = gold[key]
 
         inter10 = set(val[0:10]).intersection(true_val)

@@ -6,6 +6,8 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 
+SEED = 0
+
 
 def save_json(ids, prefix, raw=True):
     client = MongoClient()
@@ -131,9 +133,8 @@ def load_sims(fname):
     return sims
 
 
-def tfidf_batch_predict(all_ids, keys, limit=None):
+def tfidf_batch_predict(all_ids, ixs, limit=None):
     preds = {}
-    ixs = [all_ids.index(k) for k in keys]
     batch = tfidf[corpus[ixs]]
     for ix, similarities in zip(ixs, index[batch]):
         limit = limit + 1 if limit else limit
@@ -169,8 +170,21 @@ def sample_tups(ix_map, sims, n=1, seed=0):
     return tups
 
 
-def train_test_val_split(all_ids, sims, n=1, seed=0):
-    1
+def train_val_test_tups(ix_map, sims, n=1, seed=0):
+    keys, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=seed)
+    keys_train, keys_val = train_test_split(keys, test_size=0.2, random_state=seed)
+
+    sims_train = {k:sims[k] for k in keys_train}
+    sims_val = {k:sims[k] for k in keys_val}
+    sims_test = {k:sims[k] for k in keys_test}
+
+    train = sample_tups(ix_map, sims_train, n=n, seed=seed)
+    val = sample_tups(ix_map, sims_val, n=n, seed=seed)
+    test = sample_tups(ix_map, sims_test, n=n, seed=seed)
+
+    logging.info("train %s, val %s, test %s" % (len(train), len(val), len(test)))
+
+    return train, val, test
 
 
 if __name__ == '__main__':
@@ -204,13 +218,15 @@ if __name__ == '__main__':
 #   ####################### fetch ids data ###############################
 
     all_ids = load_keys('../data/keys.json')
+    ix_map = {vi: i for i, vi in enumerate(all_ids)}
     sims = load_sims('../data/sims.json')
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-#   ############################ test  ########################################
+#   ############################ small test  ############################
 
-    preds = tfidf_batch_predict(all_ids, gold.keys(), limit=200)
+    ixs = [ix_map[k] for k in gold.keys()]
+    preds = tfidf_batch_predict(all_ids, ixs, limit=200)
     res = evaluate(preds, gold)
     """    
     acc10 0.286738
@@ -221,7 +237,7 @@ if __name__ == '__main__':
 #   ##########################################################################
 
     for i, keys in enumerate(tqdm(np.array_split(list(sims.keys()), 1000))):
-        ixs = [all_ids.index(k) for k in keys]
+        ixs = [ix_map[k] for k in keys]
         batch = tfidf[corpus[ixs]]
         chunk = np.array(index[batch])
         np.save('../data/cosines/%s.npy' % i, chunk)
@@ -229,18 +245,4 @@ if __name__ == '__main__':
 
 #   #############################################################################
 
-    seed = 0
-    n = 1
-
-    keys, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=seed)
-    keys_train, keys_val = train_test_split(keys, test_size=0.2, random_state=seed)
-
-    sims_train = {k:sims[k] for k in keys_train}
-    sims_val = {k:sims[k] for k in keys_val}
-    sims_test = {k:sims[k] for k in keys_test}
-
-    ix_map = {vi: i for i, vi in enumerate(all_ids)}
-    train = sample_tups(ix_map, sims_train, n=n, seed=seed)
-    val = sample_tups(ix_map, sims_val, n=n, seed=seed)
-    test = sample_tups(ix_map, sims_test, n=n, seed=seed)
-    logging.info("train %s, val %s, test %s" % (len(train), len(val), len(test)))
+    train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
