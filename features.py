@@ -3,6 +3,8 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from pymystem3 import Mystem
 import ujson
+import random
+from sklearn.model_selection import train_test_split
 
 
 def save_json(ids, prefix, raw=True):
@@ -140,6 +142,37 @@ def tfidf_batch_predict(all_ids, keys, limit=None):
     return preds
 
 
+def sample_tups(ix_map, sims, n=1, seed=0):
+    """
+    :param n: "number of negatives" = n * "number of positives" for each query
+    :return: pairs of documents with relevance
+    """
+    tups = []
+    ixs = list(range(len(ix_map)))
+    random.seed(seed)
+    random.shuffle(ixs)
+
+    it = iter(ixs)
+    for k,v in sims.items():
+        k_ix = ix_map[k]
+        v_ixs = [ix_map[vi] for vi in v]
+        positives = set([k_ix] + v_ixs)
+        for pos in v_ixs:
+            tups.append((k_ix, pos, 1))
+        for i in range(n * len(v)):
+            neg = next(it)
+            while neg in positives:
+                neg = next(it)
+            tups.append((k_ix, neg, 0))
+
+    random.shuffle(tups)
+    return tups
+
+
+def train_test_val_split(all_ids, sims, n=1, seed=0):
+    1
+
+
 if __name__ == '__main__':
     client = MongoClient()
     db = client.fips
@@ -196,5 +229,18 @@ if __name__ == '__main__':
 
 #   #############################################################################
 
-    med_si = np.median([len(v) for v in sims.values()])
-    len(sims) * med_si
+    seed = 0
+    n = 1
+
+    keys, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=seed)
+    keys_train, keys_val = train_test_split(keys, test_size=0.2, random_state=seed)
+
+    sims_train = {k:sims[k] for k in keys_train}
+    sims_val = {k:sims[k] for k in keys_val}
+    sims_test = {k:sims[k] for k in keys_test}
+
+    ix_map = {vi: i for i, vi in enumerate(all_ids)}
+    train = sample_tups(ix_map, sims_train, n=n, seed=seed)
+    val = sample_tups(ix_map, sims_val, n=n, seed=seed)
+    test = sample_tups(ix_map, sims_test, n=n, seed=seed)
+    logging.info("train %s, val %s, test %s" % (len(train), len(val), len(test)))
