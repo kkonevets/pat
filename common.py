@@ -5,6 +5,7 @@ from __future__ import division
 import tensorflow as tf
 import gensim
 from gensim import corpora, models, similarities
+from gensim.corpora.dictionary import Dictionary
 from gensim.models import Word2Vec, Doc2Vec
 import nltk
 from nltk.corpus import stopwords
