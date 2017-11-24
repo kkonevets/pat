@@ -13,7 +13,7 @@ def save_json(ids, prefix, raw=True):
     client = MongoClient()
     db = client.fips
     mstem = Mystem()
-    prog = re.compile("[\\W\\d]", re.UNICODE) # only letters and '_'
+    prog = re.compile("[\\W\\d]", re.UNICODE)  # only letters and '_'
 
     raw_str = '_raw' if raw else ''
     tags = ['name', 'abstract', 'description', 'claims']
@@ -124,7 +124,7 @@ def load_sims(fname):
         db = client.fips
 
         sims = {}
-        topn = db.patents.find({'similar': {'$exists': True}}, {'similar':1})
+        topn = db.patents.find({'similar': {'$exists': True}}, {'similar': 1})
         for doc in tqdm(topn):
             sims[str(doc['_id'])] = doc['similar']
         with open(fname, 'w') as f:
@@ -154,7 +154,7 @@ def sample_tups(ix_map, sims, n=1, seed=0):
     random.shuffle(ixs)
 
     it = iter(ixs)
-    for k,v in sims.items():
+    for k, v in sims.items():
         k_ix = ix_map[k]
         v_ixs = [ix_map[vi] for vi in v]
         positives = set([k_ix] + v_ixs)
@@ -170,13 +170,13 @@ def sample_tups(ix_map, sims, n=1, seed=0):
     return tups
 
 
-def train_val_test_tups(ix_map, sims, n=1, seed=0):
-    keys, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=seed)
-    keys_train, keys_val = train_test_split(keys, test_size=0.2, random_state=seed)
+def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
+    keys, keys_test = train_test_split(list(sims.keys()), test_size=test_size, random_state=seed)
+    keys_train, keys_val = train_test_split(keys, test_size=test_size, random_state=seed)
 
-    sims_train = {k:sims[k] for k in keys_train}
-    sims_val = {k:sims[k] for k in keys_val}
-    sims_test = {k:sims[k] for k in keys_test}
+    sims_train = {k: sims[k] for k in keys_train}
+    sims_val = {k: sims[k] for k in keys_val}
+    sims_test = {k: sims[k] for k in keys_test}
 
     train = sample_tups(ix_map, sims_train, n=n, seed=seed)
     val = sample_tups(ix_map, sims_val, n=n, seed=seed)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     client = MongoClient()
     db = client.fips
 
-#   ####################### save to json ###############################
+    #   ####################### save to json ###############################
 
     docs_ids = [doc['_id'] for doc in db.patents.find({}, {'_id': 1})]
 
@@ -200,13 +200,13 @@ if __name__ == '__main__':
                       i, list_block in enumerate(grouper(len(docs_ids) // 1000, docs_ids)))
     result = parallelizer(tasks_iterator)
 
-#   ####################### save corpus #################################
+    #   ####################### save corpus #################################
 
     list_block = glob('../data/documents/*')
     list_block.sort(key=natural_keys)
     save_corpus(list_block, '../data', prefix='corpus')
 
-#   ########################### tfidf ####################################
+    #   ########################### tfidf ####################################
 
     dictionary = corpora.Dictionary.load('../data/corpus.dict')
     corpus = corpora.MmCorpus('../data/corpus.mm')
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     index = similarities.Similarity.load('../data/sim_index/sim')
     tfidf = models.TfidfModel.load('../data/tfidf.model')
 
-#   ####################### fetch ids data ###############################
+    #   ####################### fetch ids data ###############################
 
     all_ids = load_keys('../data/keys.json')
     ix_map = {vi: i for i, vi in enumerate(all_ids)}
@@ -223,7 +223,11 @@ if __name__ == '__main__':
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-#   ############################ small test  ############################
+    #   ######################### train val test split ############################
+
+    train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
+
+    #   ############################ small test  ##################################
 
     ixs = [ix_map[k] for k in gold.keys()]
     preds = tfidf_batch_predict(all_ids, ixs, limit=200)
@@ -234,15 +238,10 @@ if __name__ == '__main__':
     acc200 0.573477
     """
 
-#   ##########################################################################
+    #   ##########################################################################
 
     for i, keys in enumerate(tqdm(np.array_split(list(sims.keys()), 1000))):
         ixs = [ix_map[k] for k in keys]
         batch = tfidf[corpus[ixs]]
         chunk = np.array(index[batch])
         np.save('../data/cosines/%s.npy' % i, chunk)
-
-
-#   #############################################################################
-
-    train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
