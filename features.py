@@ -55,6 +55,28 @@ def iter_docs(fnames):
             yield [w for t in doc.values() for s in t for w in s]
 
 
+def keys_from_json(fnames):
+    keys = []
+    for filename in tqdm(fnames):
+        with GzipFile(filename) as f:
+            data = ujson.load(f)
+            keys += list(data.keys())
+    return keys
+
+
+def load_keys(keys_path):
+    if path.exists(keys_path):
+        with open(keys_path) as f:
+            keys = json.load(f)
+    else:
+        list_block = glob('../data/documents/*')
+        list_block.sort(key=natural_keys)
+        keys = keys_from_json(list_block)
+        with open(keys_path, 'w') as f:
+            json.dump(keys, f)
+    return keys
+
+
 class Corpus(gensim.corpora.TextCorpus):
     def get_texts(self):
         for doc in iter_docs(self.input):
@@ -72,6 +94,39 @@ def save_corpus(list_block, dir_name, prefix='corpus'):
     corpora.MmCorpus.serialize(corp_name, corpus)
 
     return dic_name, corp_name
+
+
+def build_tfidf_index(dictionary, corpus, anew=True):
+    fmodel = '../data/tfidf.model'
+    if anew or not path.exists(fmodel):
+        tfidf = models.TfidfModel(corpus)
+        tfidf.save(fmodel)
+    else:
+        tfidf = models.TfidfModel.load(fmodel)
+
+    fname = '../data/sim_index/sim'
+    index = similarities.Similarity(fname, tfidf[corpus],
+                                    num_features=len(dictionary), num_best=None,
+                                    chunksize=10 * 256, shardsize=10 * 32768)
+    index.save(fname)
+
+
+def load_sims(fname):
+    if path.exists(fname):
+        with open(fname) as f:
+            sims = json.load(f)
+    else:
+        client = MongoClient()
+        db = client.fips
+
+        sims = {}
+        topn = db.patents.find({'similar': {'$exists': True}}, {'similar':1})
+        for doc in tqdm(topn):
+            sims[str(doc['_id'])] = doc['similar']
+        with open(fname, 'w') as f:
+            json.dump(sims, f)
+
+    return sims
 
 
 if __name__ == '__main__':
@@ -97,28 +152,34 @@ if __name__ == '__main__':
 
     dictionary = corpora.Dictionary.load('../data/corpus.dict')
     corpus = corpora.MmCorpus('../data/corpus.mm')
+    build_tfidf_index(dictionary, corpus, anew=True)
 
-    fmodel = join(DATA_FOLDER, 'tfidf.model')
-    if not path.exists(fmodel):
-        tfidf = models.TfidfModel(corpus)
-        tfidf.save(fmodel)
-    else:
-        tfidf = models.TfidfModel.load(fmodel)
+    index = similarities.Similarity.load('../data/sim_index/sim')
+    tfidf = models.TfidfModel.load('../data/tfidf.model')
 
-    fname = join(DATA_FOLDER, '../data/sim_index/sim')
-    index = similarities.Similarity(fname, tfidf[corpus],
-                                    num_features=len(dictionary), num_best=None,
-                                    chunksize=10 * 256, shardsize=10 * 32768)
-    index.save(fname)
+#   ####################### fetch ids data ###############################
 
-    # index = similarities.Similarity.load(fname)
-
-
-#   ########################################################################
-
+    ids = load_keys('../data/keys.json')
+    sims = load_sims('../data/sims.json')
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-    topn = db.patents.find({})
-    for doc in tqdm(topn, total=len(docs_ids)):
-        break
+#   ############################ test  ########################################
+
+    preds = {}
+    ixs = [ids.index(k) for k in gold.keys()]
+    batch = tfidf[corpus[ixs]]
+    for _id, similarities in zip(gold.keys(), index[batch]):
+        sorted_ixs = similarities.argsort()[::-1][:201]
+        preds[_id] = [ids[i] for i in sorted_ixs if ids[i] != _id]
+
+    res = evaluate(preds, gold)
+
+#   ##########################################################################
+
+    for i, similarities in enumerate(index):
+        print(i)
+
+
+#   #############################################################################
+
