@@ -240,8 +240,25 @@ if __name__ == '__main__':
 
     #   ##########################################################################
 
+    def top_words(tfidf_doc, k=50):
+        return set(map(itemgetter(0), sorted(tfidf_doc, key=itemgetter(1), reverse=True)[:k]))
+
+
     for i, keys in enumerate(tqdm(np.array_split(list(sims.keys()), 1000))):
         ixs = [ix_map[k] for k in keys]
         batch = tfidf[corpus[ixs]]
-        chunk = np.array(index[batch])
-        np.save('../data/cosines/%s.npy' % i, chunk)
+        tops = map(top_words, batch)
+        # chunk = index[batch]
+        # np.save('../data/cosines/%s.npy' % i, chunk)
+        break
+
+
+
+    top = list(tops)[0]
+
+    res = []
+    for d in tqdm(corpus):
+        words = set(map(itemgetter(0), d))
+        res.append(bool(top & words))
+
+    set(map(itemgetter(0), d))
