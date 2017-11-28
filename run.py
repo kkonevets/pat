@@ -243,7 +243,7 @@ if __name__ == '__main__':
         os.remove('../data/foundat.csv')
     except OSError:
         pass
-    for keys in tqdm(np.array_split(list(sims.keys()), 1000)):
+    for keys in tqdm(np.array_split(list(sims.keys()), 500)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
             (delayed(tfidf_worker)(part) for
              part in np.array_split(keys, cpu_count))
