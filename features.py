@@ -217,7 +217,7 @@ if __name__ == '__main__':
 
     dictionary = corpora.Dictionary.load('../data/corpus.dict')
     corpus = corpora.MmCorpus('../data/corpus.mm')
-    build_tfidf_index(dictionary, corpus, anew=True)
+    # build_tfidf_index(dictionary, corpus, anew=True)
 
     index = similarities.Similarity.load('../data/sim_index/sim')
     tfidf = models.TfidfModel.load('../data/tfidf.model')
@@ -230,7 +230,7 @@ if __name__ == '__main__':
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-    #   ######################### train val test split ############################
+    # ######################### train val test split ############################
 
     train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
 
@@ -245,6 +245,7 @@ if __name__ == '__main__':
     acc200 0.573477
     """
 
+
     #   ##########################################################################
 
     def sample_negs(iix, posvs, k=1):
@@ -254,25 +255,28 @@ if __name__ == '__main__':
 
 
     def found_at(iix, posvs):
-        return [iix.index(i) for i in posvs]
+        ixs = np.isin(iix, posvs)
+        return np.where(ixs)[0]
 
 
     samples = []
     found = []
-    for keys in tqdm(chunks(sims.keys(), 500)):
+    for keys in tqdm(chunks(list(sims.keys()), 100)):
         ixs = [ix_map[k] for k in keys]
         batch = tfidf[corpus[ixs]]
         cosines = index[batch]
 
-        argsorted = np.argsort(-cosines)  # reversed sort
+        # reversed sort
+        argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading")
+            (delayed(np.argsort)(part) for
+             part in np.array_split(-cosines, cpu_count)))
         # first element is a query itself
-        args1, args2 = tee((iix[1:], sims[key]) for iix, key in zip(argsorted, keys))
+        args1, args2 = tee((iix[1:], [ix_map[k] for k in sims[key]])
+                           for iix, key in zip(argsorted, keys))
 
-        posvs, negs = starmap(sample_negs, args1)
-        samples.append(posvs + negs)
+        # samples += list(starmap(sample_negs, args1))
 
-        found += list(starmap(found_at, args2))
-        gc.collect()
-        break
+        found += list(chain.from_iterable((starmap(found_at, args2))))
+        # gc.collect()
 
 
