@@ -6,7 +6,7 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
-from matplotlib import pyplot as plt
+
 
 SEED = 0
 
@@ -189,10 +189,44 @@ def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
     return train, val, test
 
 
-def chunks(l, n):
-    """Yield successive n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+def sample_negs(iix, key, k=1):
+    posvs = [ix_map[k] for k in sims[key]]
+    pos_len = len(posvs)
+    filtered = filterfalse(lambda x: x in posvs, iix)
+    # slice starting from 1 - could be duplicate
+    close_negs = list(islice(filtered, 1, k * pos_len + 1))
+
+    np.random.seed(random.randint(0,1000))
+    far_negs = []
+    key_ix = ix_map[key]
+    worst = int(percentiles[90][0])
+    while set(far_negs) & set([key_ix] + posvs) or len(far_negs) == 0:
+        far_negs_ixs = np.random.choice(neg_ixs, k * pos_len, replace=False)
+        far_negs = [iix[i] for i in far_negs_ixs] + [iix[worst]]
+        worst += 1
+    return key_ix, posvs, close_negs + far_negs
+
+
+def found_at(iix, key):
+    posvs = [ix_map[k] for k in sims[key]]
+    ixs = np.isin(iix, posvs)
+    return np.where(ixs)[0]
+
+
+def tfidf_worker(keys):
+    ixs = [ix_map[k] for k in keys]
+    batch = tfidf[corpus[ixs]]
+    cosines = index[batch]
+    # reversed sort
+    argsorted = np.argsort(-cosines)
+    # first element is a query itself
+    args1, args2 = tee((iix[1:].tolist(), key)
+                       for iix, key in zip(argsorted, keys))
+
+    samples = list(starmap(sample_negs, args1))
+
+    # found = list(chain.from_iterable((starmap(found_at, args2))))
+    return samples
 
 
 if __name__ == '__main__':
@@ -231,10 +265,6 @@ if __name__ == '__main__':
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-    # ######################### train val test split ############################
-
-    train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
-
     #   ############################ small test  ##################################
 
     ixs = [ix_map[k] for k in gold.keys()]
@@ -246,52 +276,77 @@ if __name__ == '__main__':
     acc200 0.573477
     """
 
+    # ######################### train val test split ############################
 
-    #   ##########################################################################
+    # train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
+    keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
+    keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
 
-    def sample_negs(iix, posvs, k=1):
-        pos_len = len(posvs)
-        filtered = filterfalse(lambda x: x in posvs, iix)
-        return posvs, list(islice(filtered, k * pos_len))
+    ixs_train = [ix_map[k] for k in keys_train]
+    ixs_val = [ix_map[k] for k in keys_val]
+    ixs_test = [ix_map[k] for k in keys_test]
 
+    # ############################ get stat #####################################
 
-    def found_at(iix, posvs):
-        ixs = np.isin(iix, posvs)
-        return np.where(ixs)[0]
+    df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
+    # df.plot.hist(bins=100)
+    df.describe()
+    q = range(10, 100, 10)
+    percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
+    neg_ixs = list(df['rank'])
 
+    random.seed(SEED)
+    random.shuffle(neg_ixs)
 
-    def tfidf_worker(keys):
-        ixs = [ix_map[k] for k in keys]
-        batch = tfidf[corpus[ixs]]
-        cosines = index[batch]
-        # reversed sort
-        argsorted = np.argsort(-cosines)
-        # first element is a query itself
-        args1, args2 = tee((iix[1:], [ix_map[k] for k in sims[key]])
-                           for iix, key in zip(argsorted, keys))
-
-        # samples += list(starmap(sample_negs, args1))
-
-        found = list(chain.from_iterable((starmap(found_at, args2))))
-        return found
-
+    # #################################################################################
 
     samples = []
-    try:
-        os.remove('../data/foundat.csv')
-    except OSError:
-        pass
-    for keys in tqdm(np.array_split(list(sims.keys()), 1000)):
+    # try:
+    #     os.remove('../data/foundat.csv')
+    # except OSError:
+    #     pass
+    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
             (delayed(tfidf_worker)(part) for
-             part in np.array_split(keys, cpu_count))
+             part in np.array_split(keys_part, cpu_count))
 
-        found = chain.from_iterable(res)
-        with open('../data/foundat.csv', 'a') as f:
-            f.writelines((str(i) + '\n' for i in found))
+        samples += list(chain.from_iterable(res))
+        break
+
+    with open('../data/sampled.json', 'w') as f:
+        json.dump(samples, f)
+
+    i=34
+    samples[i]
+    print(all_ids[samples[i][0]])
+    print([all_ids[ix] for ix in samples[i][1]])
+    print([all_ids[ix] for ix in samples[i][2]])
+
 
     df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
     # df.plot.hist(bins=100)
     df.describe()
     q = range(10, 100, 10)
     pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
+
+
+
+
+
+
+
+
+
+
+
+    # ############################################################################
+
+
+
+
+
+
+
+
+
+
