@@ -6,7 +6,6 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
-from matplotlib import pyplot as plt
 
 SEED = 0
 
