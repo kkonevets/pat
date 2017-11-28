@@ -5,6 +5,7 @@ from pymystem3 import Mystem
 import ujson
 import random
 from sklearn.model_selection import train_test_split
+from itertools import *
 
 SEED = 0
 
@@ -187,6 +188,12 @@ def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
     return train, val, test
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+
 if __name__ == '__main__':
     client = MongoClient()
     db = client.fips
@@ -240,25 +247,32 @@ if __name__ == '__main__':
 
     #   ##########################################################################
 
-    def top_words(tfidf_doc, k=50):
-        return set(map(itemgetter(0), sorted(tfidf_doc, key=itemgetter(1), reverse=True)[:k]))
+    def sample_negs(iix, posvs, k=1):
+        pos_len = len(posvs)
+        filtered = filterfalse(lambda x: x in posvs, iix)
+        return posvs, list(islice(filtered, k * pos_len))
 
 
-    for i, keys in enumerate(tqdm(np.array_split(list(sims.keys()), 1000))):
+    def found_at(iix, posvs):
+        return [iix.index(i) for i in posvs]
+
+
+    samples = []
+    found = []
+    for keys in tqdm(chunks(sims.keys(), 500)):
         ixs = [ix_map[k] for k in keys]
         batch = tfidf[corpus[ixs]]
-        tops = map(top_words, batch)
-        # chunk = index[batch]
-        # np.save('../data/cosines/%s.npy' % i, chunk)
+        cosines = index[batch]
+
+        argsorted = np.argsort(-cosines)  # reversed sort
+        # first element is a query itself
+        args1, args2 = tee((iix[1:], sims[key]) for iix, key in zip(argsorted, keys))
+
+        posvs, negs = starmap(sample_negs, args1)
+        samples.append(posvs + negs)
+
+        found += list(starmap(found_at, args2))
+        gc.collect()
         break
 
 
-
-    top = list(tops)[0]
-
-    res = []
-    for d in tqdm(corpus):
-        words = set(map(itemgetter(0), d))
-        res.append(bool(top & words))
-
-    set(map(itemgetter(0), d))
