@@ -6,6 +6,7 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
+from matplotlib import pyplot as plt
 
 SEED = 0
 
@@ -259,24 +260,38 @@ if __name__ == '__main__':
         return np.where(ixs)[0]
 
 
-    samples = []
-    found = []
-    for keys in tqdm(chunks(list(sims.keys()), 100)):
+    def tfidf_worker(keys):
         ixs = [ix_map[k] for k in keys]
         batch = tfidf[corpus[ixs]]
         cosines = index[batch]
-
         # reversed sort
-        argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading")
-            (delayed(np.argsort)(part) for
-             part in np.array_split(-cosines, cpu_count)))
+        argsorted = np.argsort(-cosines)
         # first element is a query itself
         args1, args2 = tee((iix[1:], [ix_map[k] for k in sims[key]])
                            for iix, key in zip(argsorted, keys))
 
         # samples += list(starmap(sample_negs, args1))
 
-        found += list(chain.from_iterable((starmap(found_at, args2))))
-        # gc.collect()
+        found = list(chain.from_iterable((starmap(found_at, args2))))
+        return found
 
 
+    samples = []
+    try:
+        os.remove('../data/foundat.csv')
+    except OSError:
+        pass
+    for keys in tqdm(np.array_split(list(sims.keys()), 1000)):
+        res = Parallel(n_jobs=cpu_count, backend="threading") \
+            (delayed(tfidf_worker)(part) for
+             part in np.array_split(keys, cpu_count))
+
+        found = chain.from_iterable(res)
+        with open('../data/foundat.csv', 'a') as f:
+            f.writelines((str(i) + '\n' for i in found))
+
+    df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
+    # df.plot.hist(bins=100)
+    df.describe()
+    q = range(10, 100, 10)
+    pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
