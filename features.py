@@ -320,7 +320,7 @@ if __name__ == '__main__':
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)
 
-    i = 4
+    i = 32
     samples[i]
     print(all_ids[samples[i][0]])
     print([all_ids[ix] for ix in samples[i][1]])
