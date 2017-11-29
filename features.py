@@ -195,17 +195,16 @@ def sample_negs(iix, key, k=1):
     size = len(posvs) * k
 
     # slice starting from 1 - could be duplicate
-    filtered = filterfalse(lambda x: x in exclude, iix[1:])
+    filtered = filterfalse(lambda x: x in exclude, map(int, iix[1:]))
     close_negs = list(islice(filtered, size))
 
     i = random.randint(0, len(neg_ixs) - size)
     worst = int(percentiles[90][0])
-    filtered = filterfalse(lambda x: x in exclude, neg_ixs[i:])
-    far_negs_ixs = list(islice(filtered, size))
+    filtered = filterfalse(lambda x: x in exclude + close_negs,
+                           (int(iix[j]) for j in neg_ixs[i:]))
+    far_negs = list(islice(filtered, size)) + [int(iix[worst])]
 
-    far_negs = iix[far_negs_ixs + [worst]]
-
-    return key_ix, posvs, close_negs + far_negs.tolist()
+    return key_ix, posvs, close_negs + far_negs
 
 
 def found_at(iix, key):
@@ -320,11 +319,12 @@ if __name__ == '__main__':
                            for iix, key in zip(argsorted, keys_part))
 
         samples += list(starmap(sample_negs, args1))
+        break
 
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)
 
-    i = 34
+    i = 77
     samples[i]
     print(all_ids[samples[i][0]])
     print([all_ids[ix] for ix in samples[i][1]])
