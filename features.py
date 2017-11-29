@@ -213,20 +213,25 @@ def found_at(iix, key):
     return np.where(ixs)[0]
 
 
-def tfidf_worker(keys):
+def argsort(keys):
     ixs = [ix_map[k] for k in keys]
     batch = tfidf[corpus[ixs]]
     cosines = index[batch]
     # reversed sort
     argsorted = np.argsort(-cosines)
+    return argsorted
+
+
+def tfidf_worker(keys):
+    argsorted = argsort(keys)
     # first element is a query itself
     args1, args2 = tee((iix[1:].tolist(), key)
                        for iix, key in zip(argsorted, keys))
 
-    samples = list(starmap(sample_negs, args1))
+    # samples = list(starmap(sample_negs, args1))
 
-    # found = list(chain.from_iterable((starmap(found_at, args2))))
-    return samples
+    found = list(chain.from_iterable((starmap(found_at, args2))))
+    return found
 
 
 if __name__ == '__main__':
@@ -291,10 +296,9 @@ if __name__ == '__main__':
     df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
     # df.plot.hist(bins=100)
     df.describe()
-    q = range(10, 100, 5)
+    q = range(10, 100, 10)
     percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
     neg_ixs = list(df['rank'])
-
     random.seed(SEED)
     random.shuffle(neg_ixs)
 
@@ -305,13 +309,16 @@ if __name__ == '__main__':
     #     os.remove('../data/foundat.csv')
     # except OSError:
     #     pass
-    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
-        res = Parallel(n_jobs=cpu_count, backend="threading") \
-            (delayed(tfidf_worker)(part) for
-             part in np.array_split(keys_part, cpu_count))
+    for keys_part in tqdm(np.array_split(keys_tv, 5000)):
+        argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading") \
+            (delayed(argsort)(part) for
+             part in np.array_split(keys_part, cpu_count)))
 
-        samples += list(chain.from_iterable(res))
-        break
+        # first element is a query itself
+        args1, args2 = tee((iix[1:].tolist(), key)
+                           for iix, key in zip(argsorted, keys_part))
+
+        samples += list(starmap(sample_negs, args1))
 
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)
