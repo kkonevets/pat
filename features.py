@@ -319,7 +319,6 @@ if __name__ == '__main__':
                            for iix, key in zip(argsorted, keys_part))
 
         samples += list(starmap(sample_negs, args1))
-        break
 
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)

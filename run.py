@@ -188,10 +188,50 @@ def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
     return train, val, test
 
 
-def chunks(l, n):
-    """Yield successive n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+def sample_negs(iix, key, k=1):
+    key_ix = ix_map[key]
+    posvs = [ix_map[k] for k in sims[key]]
+    exclude = posvs + [key_ix]
+    size = len(posvs) * k
+
+    # slice starting from 1 - could be duplicate
+    filtered = filterfalse(lambda x: x in exclude, map(int, iix[1:]))
+    close_negs = list(islice(filtered, size))
+
+    i = random.randint(0, len(neg_ixs) - size)
+    worst = int(percentiles[90][0])
+    filtered = filterfalse(lambda x: x in exclude + close_negs,
+                           (int(iix[j]) for j in neg_ixs[i:]))
+    far_negs = list(islice(filtered, size)) + [int(iix[worst])]
+
+    return key_ix, posvs, close_negs + far_negs
+
+
+def found_at(iix, key):
+    posvs = [ix_map[k] for k in sims[key]]
+    ixs = np.isin(iix, posvs)
+    return np.where(ixs)[0]
+
+
+def argsort(keys):
+    ixs = [ix_map[k] for k in keys]
+    batch = tfidf[corpus[ixs]]
+    cosines = index[batch]
+    # reversed sort
+    argsorted = np.argsort(-cosines)
+    return argsorted
+
+
+def tfidf_worker(keys):
+    argsorted = argsort(keys)
+    # first element is a query itself
+    args1, args2 = tee((iix[1:].tolist(), key)
+                       for iix, key in zip(argsorted, keys))
+
+    # samples = list(starmap(sample_negs, args1))
+
+    found = list(chain.from_iterable((starmap(found_at, args2))))
+    return found
 
 
 if __name__ == '__main__':
@@ -210,44 +250,56 @@ if __name__ == '__main__':
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
+    # ######################### train val test split ############################
 
-    def sample_negs(iix, posvs, k=1):
-        pos_len = len(posvs)
-        filtered = filterfalse(lambda x: x in posvs, iix)
-        return posvs, list(islice(filtered, k * pos_len))
+    # train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
+    keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
+    keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
 
+    ixs_train = [ix_map[k] for k in keys_train]
+    ixs_val = [ix_map[k] for k in keys_val]
+    ixs_test = [ix_map[k] for k in keys_test]
 
-    def found_at(iix, posvs):
-        ixs = np.isin(iix, posvs)
-        return np.where(ixs)[0]
+    # ############################ get stat #####################################
 
+    df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
+    # df.plot.hist(bins=100)
+    df.describe()
+    q = range(10, 100, 10)
+    percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
+    neg_ixs = df['rank'].values
+    random.seed(SEED)
+    random.shuffle(neg_ixs)
 
-    def tfidf_worker(keys):
-        ixs = [ix_map[k] for k in keys]
-        batch = tfidf[corpus[ixs]]
-        cosines = index[batch]
-        # reversed sort
-        argsorted = np.argsort(-cosines)
-        # first element is a query itself
-        args1, args2 = tee((iix[1:], [ix_map[k] for k in sims[key]])
-                           for iix, key in zip(argsorted, keys))
-
-        # samples += list(starmap(sample_negs, args1))
-
-        found = list(chain.from_iterable((starmap(found_at, args2))))
-        return found
-
+    # #################################################################################
 
     samples = []
-    try:
-        os.remove('../data/foundat.csv')
-    except OSError:
-        pass
-    for keys in tqdm(np.array_split(list(sims.keys()), 500)):
-        res = Parallel(n_jobs=cpu_count, backend="threading") \
-            (delayed(tfidf_worker)(part) for
-             part in np.array_split(keys, cpu_count))
+    # try:
+    #     os.remove('../data/foundat.csv')
+    # except OSError:
+    #     pass
+    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
+        argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading") \
+                                  (delayed(argsort)(part) for
+                                   part in np.array_split(keys_part, cpu_count)))
 
-        found = chain.from_iterable(res)
-        with open('../data/foundat.csv', 'a') as f:
-            f.writelines((str(i) + '\n' for i in found))
+        # first element is a query itself
+        args1, args2 = tee((iix[1:], key)
+                           for iix, key in zip(argsorted, keys_part))
+
+        samples += list(starmap(sample_negs, args1))
+
+    with open('../data/sampled.json', 'w') as f:
+        json.dump(samples, f)
+
+
+
+
+
+
+
+
+
+
+
+    # ############################################################################
