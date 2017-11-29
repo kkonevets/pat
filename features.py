@@ -331,21 +331,23 @@ if __name__ == '__main__':
     # print([all_ids[ix] for ix in samples[i][1]])
     # print([all_ids[ix] for ix in samples[i][2]])
 
+    # ################################## BM25 #####################################
+
+    from gensim.summarization.bm25 import *
+
+    dictionary = corpora.Dictionary.load('../data/corpus.dict')
+    corpus = corpora.MmCorpus('../data/corpus.mm')
+
+    bm25_model = BM25(corpus)
+    with open('../data/BM25.model', 'wb') as f:
+        pickle.dump(bm25_model, f)
+
     # ############################## gen features ##################################
 
-    def gen_features(doc_ix):
+    doc_ix = 591814
+
+    def get_features(doc_ix):
         1
-
-
-
-
-
-
-
-
-
-
-
 
     # ############################################################################
 
