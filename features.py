@@ -291,7 +291,7 @@ if __name__ == '__main__':
     df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
     # df.plot.hist(bins=100)
     df.describe()
-    q = range(10, 100, 10)
+    q = range(10, 100, 5)
     percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
     neg_ixs = list(df['rank'])
 
