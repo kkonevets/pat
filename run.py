@@ -278,7 +278,7 @@ if __name__ == '__main__':
     #     os.remove('../data/foundat.csv')
     # except OSError:
     #     pass
-    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
+    for keys_part in tqdm(np.array_split(keys_tv, 500)):
         argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading") \
                                   (delayed(argsort)(part) for
                                    part in np.array_split(keys_part, cpu_count)))
