@@ -7,7 +7,6 @@ import random
 from sklearn.model_selection import train_test_split
 from itertools import *
 
-
 SEED = 0
 
 
@@ -190,21 +189,23 @@ def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
 
 
 def sample_negs(iix, key, k=1):
-    posvs = [ix_map[k] for k in sims[key]]
-    pos_len = len(posvs)
-    filtered = filterfalse(lambda x: x in posvs, iix)
-    # slice starting from 1 - could be duplicate
-    close_negs = list(islice(filtered, 1, k * pos_len + 1))
-
-    np.random.seed(random.randint(0,1000))
-    far_negs = []
     key_ix = ix_map[key]
+    posvs = [ix_map[k] for k in sims[key]]
+    exclude = posvs + [key_ix]
+    size = len(posvs) * k
+
+    # slice starting from 1 - could be duplicate
+    filtered = filterfalse(lambda x: x in exclude, iix[1:])
+    close_negs = list(islice(filtered, size))
+
+    i = random.randint(0, len(neg_ixs) - size)
     worst = int(percentiles[90][0])
-    while set(far_negs) & set([key_ix] + posvs) or len(far_negs) == 0:
-        far_negs_ixs = np.random.choice(neg_ixs, k * pos_len, replace=False)
-        far_negs = [iix[i] for i in far_negs_ixs] + [iix[worst]]
-        worst += 1
-    return key_ix, posvs, close_negs + far_negs
+    filtered = filterfalse(lambda x: x in exclude, neg_ixs[i:])
+    far_negs_ixs = list(islice(filtered, size))
+
+    far_negs = iix[far_negs_ixs + [worst]]
+
+    return key_ix, posvs, close_negs + far_negs.tolist()
 
 
 def found_at(iix, key):
@@ -270,7 +271,7 @@ if __name__ == '__main__':
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-    #   ############################ small test  ##################################
+    # ############################ small test  ##################################
 
     ixs = [ix_map[k] for k in gold.keys()]
     preds = tfidf_batch_predict(all_ids, ixs, limit=200)
@@ -298,7 +299,7 @@ if __name__ == '__main__':
     df.describe()
     q = range(10, 100, 10)
     percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
-    neg_ixs = list(df['rank'])
+    neg_ixs = df['rank'].values
     random.seed(SEED)
     random.shuffle(neg_ixs)
 
@@ -309,13 +310,13 @@ if __name__ == '__main__':
     #     os.remove('../data/foundat.csv')
     # except OSError:
     #     pass
-    for keys_part in tqdm(np.array_split(keys_tv, 5000)):
+    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
         argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading") \
-            (delayed(argsort)(part) for
-             part in np.array_split(keys_part, cpu_count)))
+                                  (delayed(argsort)(part) for
+                                   part in np.array_split(keys_part, cpu_count)))
 
         # first element is a query itself
-        args1, args2 = tee((iix[1:].tolist(), key)
+        args1, args2 = tee((iix[1:], key)
                            for iix, key in zip(argsorted, keys_part))
 
         samples += list(starmap(sample_negs, args1))
@@ -323,12 +324,11 @@ if __name__ == '__main__':
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)
 
-    i=34
+    i = 34
     samples[i]
     print(all_ids[samples[i][0]])
     print([all_ids[ix] for ix in samples[i][1]])
     print([all_ids[ix] for ix in samples[i][2]])
-
 
     df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
     # df.plot.hist(bins=100)
@@ -347,13 +347,3 @@ if __name__ == '__main__':
 
 
     # ############################################################################
-
-
-
-
-
-
-
-
-
-
