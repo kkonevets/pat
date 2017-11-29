@@ -202,7 +202,7 @@ def sample_negs(iix, key, k=1):
     worst = int(percentiles[90][0])
     filtered = filterfalse(lambda x: x in exclude + close_negs,
                            (int(iix[j]) for j in neg_ixs[i:]))
-    far_negs = list(islice(filtered, size)) + [int(iix[worst])]
+    far_negs = list(set(islice(filtered, size)) + [int(iix[worst])])
 
     return key_ix, posvs, close_negs + far_negs
 
