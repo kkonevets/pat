@@ -225,13 +225,14 @@ def argsort(keys):
 def tfidf_worker(keys):
     argsorted = argsort(keys)
     # first element is a query itself
-    args1, args2 = tee((iix[1:].tolist(), key)
-                       for iix, key in zip(argsorted, keys))
+    args = ((iix[1:], key) for iix, key in
+            zip(argsorted, keys_part))
 
-    # samples = list(starmap(sample_negs, args1))
+    samples = list(starmap(sample_negs, args))
 
-    found = list(chain.from_iterable((starmap(found_at, args2))))
-    return found
+    # found = list(chain.from_iterable((starmap(found_at, args2))))
+
+    return samples
 
 
 if __name__ == '__main__':
@@ -310,15 +311,10 @@ if __name__ == '__main__':
     # except OSError:
     #     pass
     for keys_part in tqdm(np.array_split(keys_tv, 2000)):
-        argsorted = np.vstack(Parallel(n_jobs=cpu_count, backend="threading") \
-                                  (delayed(argsort)(part) for
-                                   part in np.array_split(keys_part, cpu_count)))
-
-        # first element is a query itself
-        args1, args2 = tee((iix[1:], key)
-                           for iix, key in zip(argsorted, keys_part))
-
-        samples += list(starmap(sample_negs, args1))
+        res = Parallel(n_jobs=cpu_count, backend="threading") \
+            (delayed(tfidf_worker)(part) for
+             part in np.array_split(keys_part, cpu_count))
+        samples += list(chain.from_iterable(res))
         break
 
     with open('../data/sampled.json', 'w') as f:
