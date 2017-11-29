@@ -235,6 +235,24 @@ def tfidf_worker(keys):
     return samples
 
 
+def gen_train_samples(keys_tv):
+    samples = []
+    # try:
+    #     os.remove('../data/foundat.csv')
+    # except OSError:
+    #     pass
+    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
+        res = Parallel(n_jobs=cpu_count, backend="threading") \
+            (delayed(tfidf_worker)(part) for
+             part in np.array_split(keys_part, cpu_count))
+        samples += list(chain.from_iterable(res))
+
+    with open('../data/sampled.json', 'w') as f:
+        json.dump(samples, f)
+
+    return samples
+
+
 if __name__ == '__main__':
     client = MongoClient()
     db = client.fips
@@ -303,40 +321,23 @@ if __name__ == '__main__':
     random.seed(SEED)
     random.shuffle(neg_ixs)
 
-    # #################################################################################
+    # ############################# smart neg sample ############################
 
-    samples = []
-    # try:
-    #     os.remove('../data/foundat.csv')
-    # except OSError:
-    #     pass
-    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
-        res = Parallel(n_jobs=cpu_count, backend="threading") \
-            (delayed(tfidf_worker)(part) for
-             part in np.array_split(keys_part, cpu_count))
-        samples += list(chain.from_iterable(res))
-        break
+    samples = gen_train_samples(keys_tv)
 
-    with open('../data/sampled.json', 'w') as f:
-        json.dump(samples, f)
+    # i = 33
+    # samples[i]
+    # print(all_ids[samples[i][0]])
+    # print([all_ids[ix] for ix in samples[i][1]])
+    # print([all_ids[ix] for ix in samples[i][2]])
 
-    i = 32
-    samples[i]
-    print(all_ids[samples[i][0]])
-    print([all_ids[ix] for ix in samples[i][1]])
-    print([all_ids[ix] for ix in samples[i][2]])
+    # ############################## gen features ##################################
 
-    df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
-    # df.plot.hist(bins=100)
-    df.describe()
-    q = range(10, 100, 10)
-    pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
+    def gen_features(doc_ix):
+        1
 
 
-    batch = tfidf[corpus[1114889]]
-    cosines = index[batch]
-    # reversed sort
-    argsorted = np.argsort(-cosines)
+
 
 
 
@@ -347,3 +348,15 @@ if __name__ == '__main__':
 
 
     # ############################################################################
+
+
+
+
+
+
+
+
+
+
+
+
