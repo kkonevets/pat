@@ -202,7 +202,7 @@ def sample_negs(iix, key, k=1):
     worst = int(percentiles[90][0])
     filtered = filterfalse(lambda x: x in exclude + close_negs,
                            (int(iix[j]) for j in neg_ixs[i:]))
-    far_negs = list(islice(filtered, size)) + [int(iix[worst])]
+    far_negs = list(set(islice(filtered, size))) + [int(iix[worst])]
 
     return key_ix, posvs, close_negs + far_negs
 
@@ -226,7 +226,7 @@ def tfidf_worker(keys):
     argsorted = argsort(keys)
     # first element is a query itself
     args = ((iix[1:], key) for iix, key in
-            zip(argsorted, keys_part))
+            zip(argsorted, keys))
 
     samples = list(starmap(sample_negs, args))
 
@@ -236,6 +236,7 @@ def tfidf_worker(keys):
 
 
 if __name__ == '__main__':
+
     dictionary = corpora.Dictionary.load('../data/corpus.dict')
     corpus = corpora.MmCorpus('../data/corpus.mm')
     # build_tfidf_index(dictionary, corpus, anew=True)
@@ -251,7 +252,7 @@ if __name__ == '__main__':
     with open('../data/gold_mongo.json', 'r') as f:
         gold = json.load(f)
 
-    # ######################### train val test split ############################
+    # ############################ small test  ##################################
 
     # train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
     keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)

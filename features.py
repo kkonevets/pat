@@ -202,7 +202,7 @@ def sample_negs(iix, key, k=1):
     worst = int(percentiles[90][0])
     filtered = filterfalse(lambda x: x in exclude + close_negs,
                            (int(iix[j]) for j in neg_ixs[i:]))
-    far_negs = list(set(islice(filtered, size)) + [int(iix[worst])])
+    far_negs = list(set(islice(filtered, size))) + [int(iix[worst])]
 
     return key_ix, posvs, close_negs + far_negs
 
@@ -226,7 +226,7 @@ def tfidf_worker(keys):
     argsorted = argsort(keys)
     # first element is a query itself
     args = ((iix[1:], key) for iix, key in
-            zip(argsorted, keys_part))
+            zip(argsorted, keys))
 
     samples = list(starmap(sample_negs, args))
 
@@ -320,7 +320,7 @@ if __name__ == '__main__':
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)
 
-    i = 77
+    i = 4
     samples[i]
     print(all_ids[samples[i][0]])
     print([all_ids[ix] for ix in samples[i][1]])
@@ -333,6 +333,10 @@ if __name__ == '__main__':
     pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
 
 
+    batch = tfidf[corpus[1114889]]
+    cosines = index[batch]
+    # reversed sort
+    argsorted = np.argsort(-cosines)
 
 
 
