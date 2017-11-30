@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from itertools import *
 from importlib import reload
 import bm25
+from operator import attrgetter
 
 SEED = 0
 
@@ -365,6 +366,10 @@ if __name__ == '__main__':
         else:
             s = None
         scores.append(s)
+
+    scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
+    scored = list(sorted(scored, key=itemgetter(1), reverse=True))
+    scored[:10]
 
     # ############################## gen features ##################################
 
