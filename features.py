@@ -340,6 +340,7 @@ if __name__ == '__main__':
     # ################################## BM25 #####################################
 
     from qdr import Trainer
+    reload(bm25)
 
     list_block = glob('../data/documents/*')
     list_block.sort(key=natural_keys)
@@ -355,11 +356,14 @@ if __name__ == '__main__':
     model = bm25.load_from_file(fname)
 
     scores = []
-    for i, doc in enumerate(tqdm(corpus_iter, total=len(all_ids))):
+    for i, doc in enumerate(corpus_iter):
         if i == 0:
-            doc1 = doc
+            q = doc
             continue
-        s = model.score(doc1, doc)
+        if len(doc):
+            s = model.score(doc, q)
+        else:
+            s = None
         scores.append(s)
 
     # ############################## gen features ##################################
