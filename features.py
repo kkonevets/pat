@@ -337,6 +337,7 @@ if __name__ == '__main__':
 
     dictionary = corpora.Dictionary.load('../data/corpus.dict')
     corpus = corpora.MmCorpus('../data/corpus.mm')
+    tfidf = models.TfidfModel.load('../data/tfidf.model')
 
     bm25_model = BM25(corpus)
     with open('../data/BM25.model', 'wb') as f:
@@ -350,6 +351,19 @@ if __name__ == '__main__':
         1
 
     # ############################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
