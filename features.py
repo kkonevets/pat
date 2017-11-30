@@ -6,6 +6,7 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
+from bm25 import *
 
 SEED = 0
 
@@ -333,13 +334,10 @@ if __name__ == '__main__':
 
     # ################################## BM25 #####################################
 
-    from gensim.summarization.bm25 import *
-
-    dictionary = corpora.Dictionary.load('../data/corpus.dict')
     corpus = corpora.MmCorpus('../data/corpus.mm')
     tfidf = models.TfidfModel.load('../data/tfidf.model')
 
-    bm25_model = BM25(corpus)
+    bm25_model = BM25(corpus, tfidf)
     with open('../data/BM25.model', 'wb') as f:
         pickle.dump(bm25_model, f)
 
@@ -347,32 +345,8 @@ if __name__ == '__main__':
 
     doc_ix = 591814
 
+
     def get_features(doc_ix):
         1
 
     # ############################################################################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
