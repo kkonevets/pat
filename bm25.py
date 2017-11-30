@@ -14,17 +14,18 @@ class BM25(object):
     def __init__(self, corpus, tfidf):
         self.corpus_size = len(corpus)
         self.avgdl = sum(float(len(x)) for x in corpus) / self.corpus_size
-        self.f = corpus
+        print('avgdl is culculated: %s' % self.avgdl)
+        self.corpus = corpus
         self.idf = tfidf.idfs
 
     def get_score(self, document, index, average_idf):
         score = 0
-        for word in document:
-            if word not in self.f[index]:
+        for word, freq in document:
+            if word not in self.corpus[index]:
                 continue
             idf = self.idf[word] if self.idf[word] >= 0 else EPSILON * average_idf
-            score += (idf * self.f[index][word] * (PARAM_K1 + 1)
-                      / (self.f[index][word] + PARAM_K1 * (1 - PARAM_B + PARAM_B * self.corpus_size / self.avgdl)))
+            score += (idf * freq * (PARAM_K1 + 1)
+                      / (freq + PARAM_K1 * (1 - PARAM_B + PARAM_B * self.corpus_size / self.avgdl)))
         return score
 
     def get_scores(self, document, average_idf):
@@ -35,12 +36,11 @@ class BM25(object):
         return scores
 
 
-def get_bm25_weights(corpus, tfidf_model):
-    bm25 = BM25(corpus, tfidf_model)
+def get_bm25_weights(bm25):
     average_idf = sum(float(val) for val in bm25.idf.values()) / len(bm25.idf)
 
     weights = []
-    for doc in corpus:
+    for doc in bm25.corpus:
         scores = bm25.get_scores(doc, average_idf)
         weights.append(scores)
 

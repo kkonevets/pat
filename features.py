@@ -1,3 +1,4 @@
+
 from common import *
 from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -337,9 +338,14 @@ if __name__ == '__main__':
     corpus = corpora.MmCorpus('../data/corpus.mm')
     tfidf = models.TfidfModel.load('../data/tfidf.model')
 
-    bm25_model = BM25(corpus, tfidf)
+    bm25 = BM25(corpus, tfidf)
+    average_idf = sum(float(val) for val in bm25.idf.values()) / len(bm25.idf)
+
+    doc = corpus[0]
+    scores = bm25.get_scores(doc, average_idf)
+
     with open('../data/BM25.model', 'wb') as f:
-        pickle.dump(bm25_model, f)
+        pickle.dump(bm25, f)
 
     # ############################## gen features ##################################
 
