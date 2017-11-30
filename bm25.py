@@ -1,38 +1,34 @@
-import ujson
-from glob import glob
-from gzip import GzipFile
-from tqdm import tqdm
-import re
-from qdr import Trainer, QueryDocumentRelevance
+import gzip
+from qdr.ranker import QueryDocumentRelevance
+from contextlib import closing
 
 
-def atoi(text):
-    return int(text) if text.isdigit() else text
+def load_model(inputfile):
+    '''
+    Return total docs, counts dict
+    '''
+    with closing(gzip.GzipFile(inputfile, 'r')) as f:
+        ndocs = int(f.readline().strip())
+        counts = {}
+        for line in f:
+            word, count1, count2 = line.decode().strip().split('\t')
+            counts[word.encode()] = [int(count1), int(count2)]
+    return ndocs, counts
 
 
-def natural_keys(text):
-    """
-    alist.sort(key=natural_keys) sorts in human order
-    """
-    return [atoi(c) for c in re.split('(\d+)', text)]
+def write_model(ndocs, counts, outputfile):
+    '''Write to output file'''
+    with closing(gzip.GzipFile(outputfile, 'w')) as f:
+        f.write(("%s\n" % ndocs).encode())
+        for word, count in counts.items():
+            f.write(("%s\t%s\t%s\n" % (word, count[0], count[1])).encode())
 
 
-def iter_docs(fnames):
-    for filename in tqdm(fnames):
-        with GzipFile(filename) as f:
-            data = ujson.load(f)
-        for doc in data.values():
-            yield [w for t in doc.values() for s in t for w in s]
+def load_from_file(inputfile):
+    ndocs, counts = load_model(inputfile)
+    ret = QueryDocumentRelevance(counts, ndocs)
+    return ret
 
 
-if __name__ == '__main__':
-    list_block = glob('../data/documents/*')
-    list_block.sort(key=natural_keys)
-    corpus = iter_docs(list_block)
-
-    model = Trainer()
-    model.train(corpus)
-    model.serialize_to_file('../data/qdr_model.gz')
-
-    model = scorer = QueryDocumentRelevance.load_from_file('../data/qdr_model.gz')
-    computed_score = model.score(corpus[0], corpus[1])['bm25']
+def serialize_to_file(model, outputfile):
+    write_model(model._total_docs, model._counts, outputfile)

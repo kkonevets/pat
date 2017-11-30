@@ -7,9 +7,8 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
-from contextlib import closing
-import gzip
 from importlib import reload
+import bm25
 
 SEED = 0
 
@@ -56,12 +55,15 @@ def save_json(ids, prefix, raw=True):
     gc.collect()
 
 
-def iter_docs(fnames):
+def iter_docs(fnames, encode=False):
+    def do_encode(w):
+        return w.encode() if encode else w
+
     for filename in tqdm(fnames):
         with GzipFile(filename) as f:
             data = ujson.load(f)
         for doc in data.values():
-            yield [w for t in doc.values() for s in t for w in s]
+            yield [do_encode(w) for t in doc.values() for s in t for w in s]
 
 
 def keys_from_json(fnames):
@@ -337,18 +339,28 @@ if __name__ == '__main__':
 
     # ################################## BM25 #####################################
 
-    from qdr import Trainer, QueryDocumentRelevance
+    from qdr import Trainer
 
     list_block = glob('../data/documents/*')
     list_block.sort(key=natural_keys)
-    corpus = iter_docs(list_block)
+    corpus_iter = iter_docs(list_block, encode=True)
+    all_ids = load_keys('../data/keys.json')
+
+    fname = '../data/qdr_model.gz'
 
     model = Trainer()
-    model.train(corpus)
-    bm25_serialize(model)
+    model.train(corpus_iter)
+    bm25.serialize_to_file(model, fname)
 
-    model = bm25_load_from_file('../data/qdr_model.gz')
-    computed_score = model.score(corpus[0], corpus[1])['bm25']
+    model = bm25.load_from_file(fname)
+
+    scores = []
+    for i, doc in enumerate(tqdm(corpus_iter, total=len(all_ids))):
+        if i == 0:
+            doc1 = doc
+            continue
+        s = model.score(doc1, doc)
+        scores.append(s)
 
     # ############################## gen features ##################################
 
