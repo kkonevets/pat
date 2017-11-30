@@ -1,46 +1,38 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
-
-# BM25 parameters.
-PARAM_K1 = 1.5
-PARAM_B = 0.75
-EPSILON = 0.25
+import ujson
+from glob import glob
+from gzip import GzipFile
+from tqdm import tqdm
+import re
+from qdr import Trainer, QueryDocumentRelevance
 
 
-class BM25(object):
-
-    def __init__(self, corpus, tfidf, avgdl):
-        self.corpus_size = len(corpus)
-        self.corpus = corpus
-        self.avgdl = avgdl
-        self.idf = tfidf.idfs
-
-    def get_score(self, document, index, average_idf):
-        score = 0
-        for word, freq in document:
-            if word not in self.corpus[index]:
-                continue
-            idf = self.idf[word] if self.idf[word] >= 0 else EPSILON * average_idf
-            score += (idf * freq * (PARAM_K1 + 1)
-                      / (freq + PARAM_K1 * (1 - PARAM_B + PARAM_B * self.corpus_size / self.avgdl)))
-        return score
-
-    def get_scores(self, document, average_idf):
-        scores = []
-        for index in range(self.corpus_size):
-            score = self.get_score(document, index, average_idf)
-            scores.append(score)
-        return scores
+def atoi(text):
+    return int(text) if text.isdigit() else text
 
 
-def get_bm25_weights(bm25):
-    average_idf = sum(float(val) for val in bm25.idf.values()) / len(bm25.idf)
+def natural_keys(text):
+    """
+    alist.sort(key=natural_keys) sorts in human order
+    """
+    return [atoi(c) for c in re.split('(\d+)', text)]
 
-    weights = []
-    for doc in bm25.corpus:
-        scores = bm25.get_scores(doc, average_idf)
-        weights.append(scores)
 
-    return weights
+def iter_docs(fnames):
+    for filename in tqdm(fnames):
+        with GzipFile(filename) as f:
+            data = ujson.load(f)
+        for doc in data.values():
+            yield [w for t in doc.values() for s in t for w in s]
+
+
+if __name__ == '__main__':
+    list_block = glob('../data/documents/*')
+    list_block.sort(key=natural_keys)
+    corpus = iter_docs(list_block)
+
+    model = Trainer()
+    model.train(corpus)
+    model.serialize_to_file('../data/qdr_model.gz')
+
+    model = scorer = QueryDocumentRelevance.load_from_file('../data/qdr_model.gz')
+    computed_score = model.score(corpus[0], corpus[1])['bm25']

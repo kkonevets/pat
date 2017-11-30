@@ -7,7 +7,9 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
-from bm25 import *
+from contextlib import closing
+import gzip
+from importlib import reload
 
 SEED = 0
 
@@ -335,19 +337,18 @@ if __name__ == '__main__':
 
     # ################################## BM25 #####################################
 
-    corpus = corpora.MmCorpus('../data/corpus.mm')
-    tfidf = models.TfidfModel.load('../data/tfidf.model')
+    from qdr import Trainer, QueryDocumentRelevance
 
-    avgdl = sum(float(len(x)) for x in corpus) / len(corpus)
-    # avgdl = 185.63981631712522
-    bm25 = BM25(corpus, tfidf, avgdl)
-    average_idf = sum(float(val) for val in bm25.idf.values()) / len(bm25.idf)
+    list_block = glob('../data/documents/*')
+    list_block.sort(key=natural_keys)
+    corpus = iter_docs(list_block)
 
-    doc = corpus[0]
-    scores = bm25.get_scores(doc, average_idf)
+    model = Trainer()
+    model.train(corpus)
+    bm25_serialize(model)
 
-    with open('../data/BM25.model', 'wb') as f:
-        pickle.dump(bm25, f)
+    model = bm25_load_from_file('../data/qdr_model.gz')
+    computed_score = model.score(corpus[0], corpus[1])['bm25']
 
     # ############################## gen features ##################################
 
