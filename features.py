@@ -338,7 +338,9 @@ if __name__ == '__main__':
     corpus = corpora.MmCorpus('../data/corpus.mm')
     tfidf = models.TfidfModel.load('../data/tfidf.model')
 
-    bm25 = BM25(corpus, tfidf)
+    avgdl = sum(float(len(x)) for x in corpus) / len(corpus)
+    # avgdl = 185.63981631712522
+    bm25 = BM25(corpus, tfidf, avgdl)
     average_idf = sum(float(val) for val in bm25.idf.values()) / len(bm25.idf)
 
     doc = corpus[0]

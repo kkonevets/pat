@@ -11,11 +11,10 @@ EPSILON = 0.25
 
 class BM25(object):
 
-    def __init__(self, corpus, tfidf):
+    def __init__(self, corpus, tfidf, avgdl):
         self.corpus_size = len(corpus)
-        self.avgdl = sum(float(len(x)) for x in corpus) / self.corpus_size
-        print('avgdl is culculated: %s' % self.avgdl)
         self.corpus = corpus
+        self.avgdl = avgdl
         self.idf = tfidf.idfs
 
     def get_score(self, document, index, average_idf):
