@@ -8,7 +8,6 @@ import random
 from sklearn.model_selection import train_test_split
 from itertools import *
 from importlib import reload
-import bm25
 from operator import attrgetter
 
 SEED = 0
@@ -354,9 +353,7 @@ if __name__ == '__main__':
 
     # ################################## BM25 #####################################
 
-    from qdr import Trainer
-    from qdr import QueryDocumentRelevance
-    # reload(bm25)
+    from qdr import Trainer, QueryDocumentRelevance
 
     list_block = glob('../data/documents/*')
     list_block.sort(key=natural_keys)
@@ -367,21 +364,25 @@ if __name__ == '__main__':
 
     model = Trainer()
     model.train(corpus_iter)
-    bm25.serialize_to_file(model, fname)
+    model.serialize_to_file(fname)
 
     model = QueryDocumentRelevance.load_from_file(fname)
 
     corpus = corpora.MmCorpus('../data/corpus.mm')
     scores = []
-    for i, doc in enumerate(tqdm(corpus, total=len(corpus))):
-        if i == 0:
-            q = {bytes(k): v for k, v in doc}
-            continue
-        if len(doc):
-            s = model.score_counts({bytes(k): v for k, v in doc}, q)
-        else:
-            s = None
-        scores.append(s)
+    for el in tqdm(samples):
+        _scores = [el[0]]
+        ixs = [el[0]] + el[1] + el[2]
+        docs = list(corpus[ixs])
+        q = {bytes(k): v for k, v in docs[0]}
+        sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
+            for doc in docs[1:len(el[1])+1]]
+        _scores.append(sim_scores)
+        neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
+            for doc in docs[len(el[1])+1:]]
+        _scores.append(neg_scores)
+        scores.append(_scores)
+
 
     scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
     scored = list(sorted(scored, key=itemgetter(1), reverse=True))
