@@ -48,23 +48,35 @@ def save_json(ids, prefix, raw=True):
         docs[str(_id)] = doc_tokenized
 
     fname = join(DATA_FOLDER, 'documents', '%s' % prefix + '.json.gz')
+    save_texts(docs, fname)
+
+    gc.collect()
+
+
+def save_texts(docs, fname):
     with GzipFile(fname, 'w') as fout:
         json_str = json.dumps(docs, ensure_ascii=False)
         json_bytes = json_str.encode('utf-8')
         fout.write(json_bytes)
 
-    gc.collect()
 
-
-def iter_docs(fnames, encode=False):
+def iter_docs(fnames, encode=False, with_ids=False, as_is=False):
     def do_encode(w):
         return w.encode() if encode else w
 
     for filename in tqdm(fnames):
         with GzipFile(filename) as f:
             data = ujson.load(f)
-        for doc in data.values():
-            yield [do_encode(w) for t in doc.values() for s in t for w in s]
+        for _id, doc in data.items():
+            if as_is:
+                text = doc
+            else:
+                text = [do_encode(w) for t in doc.values() for s in t for w in s]
+
+            if with_ids:
+                yield (_id, text)
+            else:
+                yield text
 
 
 def keys_from_json(fnames):
@@ -301,7 +313,7 @@ if __name__ == '__main__':
     ixs = [ix_map[k] for k in gold.keys()]
     preds = tfidf_batch_predict(all_ids, ixs, limit=200)
     res = evaluate(preds, gold)
-    """    
+    """
     acc10 0.286738
     acc20 0.347670
     acc200 0.573477
@@ -330,7 +342,9 @@ if __name__ == '__main__':
 
     # ############################# smart neg sample ############################
 
-    samples = gen_train_samples(keys_tv)
+    # samples = gen_train_samples(keys_tv)
+    with open('../data/sampled.json', 'r') as f:
+        samples = json.load(f)
 
     # i = 33
     # samples[i]

@@ -1,0 +1,3 @@
+[submodule "adr"]
+	path = adr
+	url = https://github.com/seomoz/qdr.git
