@@ -1,3 +1,6 @@
 [submodule "adr"]
 	path = adr
 	url = https://github.com/seomoz/qdr.git
+[submodule "qdr"]
+	path = qdr
+	url = https://github.com/seomoz/qdr.git
