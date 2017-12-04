@@ -9,12 +9,12 @@
 typedef std::unordered_map<std::string, std::pair<uint64_t, uint64_t> >
     counts_t;
 
-
 // count of word occurances in a doc
 typedef std::unordered_map<std::string, uint64_t> word_counts_t;
 
 // a tokenized document
 typedef std::vector<std::string> doc_t;
+
 
 word_counts_t count_words(const doc_t& document)
 {
@@ -61,6 +61,7 @@ class QDR
 
         // compute the similarity scores
         scores_t score(doc_t& document, doc_t& query);
+        scores_t score(word_counts_t& doc_counts, word_counts_t& query_counts);
 
         // compute similiary scores for a single doc but list of queries
         std::vector<scores_t> score_batch(doc_t& document,
@@ -150,11 +151,20 @@ scores_t QDR::score(doc_t& document, doc_t& query)
     word_counts_t query_counts = count_words(query);
     word_counts_t doc_counts = count_words(document);
 
+    return score(doc_counts, query_counts);
+}
+
+scores_t QDR::score(word_counts_t& doc_counts, word_counts_t& query_counts)
+{
+    if (doc_counts.empty() || query_counts.empty())
+        throw std::invalid_argument(
+            "Document and query both need to be non-empty");
+    
     double nwords_document = 0.0;
     for (word_counts_t::const_iterator it_doc = doc_counts.begin();
-        it_doc != doc_counts.end(); ++it_doc)
+         it_doc != doc_counts.end(); ++it_doc)
         nwords_document += it_doc->second;
-
+    
     // now the scores
     return score_single(doc_counts, query_counts, nwords_document);
 }

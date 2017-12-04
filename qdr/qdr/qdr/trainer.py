@@ -13,6 +13,7 @@ from contextlib import closing
 # subsequent lines contain the token, total count, total document count
 #   separated by tabs
 
+
 def load_model(inputfile):
     '''
     Return total docs, counts dict
@@ -21,16 +22,17 @@ def load_model(inputfile):
         ndocs = int(f.readline().strip())
         counts = {}
         for line in f:
-            word, count1, count2 = line.strip().split('\t')
-            counts[word] = [int(count1), int(count2)]
+            word, count1, count2 = line.decode().strip().split('\t')
+            counts[word.encode()] = [int(count1), int(count2)]
     return ndocs, counts
+
 
 def write_model(ndocs, counts, outputfile):
     '''Write to output file'''
     with closing(gzip.GzipFile(outputfile, 'w')) as f:
-        f.write("%s\n" % ndocs)
-        for word, count in counts.iteritems():
-            f.write("%s\t%s\t%s\n" % (word, count[0], count[1]))
+        f.write(("%s\n" % ndocs).encode())
+        for word, count in counts.items():
+            f.write(("%s\t%s\t%s\n" % (word, count[0], count[1])).encode())
 
 
 class Trainer(object):

@@ -9,6 +9,7 @@ from libc.stdint cimport uint64_t
 # wrappers for the C++ classes we'll use
 cdef extern from "_ranker.cc":
     ctypedef unordered_map[string, pair[uint64_t, uint64_t] ] counts_t
+    ctypedef unordered_map[string, uint64_t ] word_counts_t
     ctypedef vector[string] doc_t
     ctypedef struct scores_t:
         double tfidf
@@ -19,6 +20,7 @@ cdef extern from "_ranker.cc":
     cdef cppclass QDR:
         QDR(counts_t& counts_in, uint64_t total_docs)
         scores_t score(doc_t& document, doc_t& query) except +
+        scores_t score(word_counts_t& doc_counts, word_counts_t& query_counts) except +
         vector[scores_t] score_batch(
             doc_t& document, vector[doc_t]& queries) except +
         double get_idf(string)
@@ -26,4 +28,3 @@ cdef extern from "_ranker.cc":
 # only need to define C attributes and methods here
 cdef class QueryDocumentRelevance:
     cdef QDR *_qdr_ptr
-

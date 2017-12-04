@@ -4,6 +4,10 @@ cimport cython
 from ranker cimport *
 from .trainer import load_model
 
+ctypedef fused doc_type:
+    doc_t
+    word_counts_t
+
 cdef class QueryDocumentRelevance:
     def __cinit__(self, counts, total_docs):
         '''
@@ -17,7 +21,7 @@ cdef class QueryDocumentRelevance:
     def __dealloc__(self):
         del self._qdr_ptr
 
-    def score(self, document, query):
+    def score(self, doc_t document, doc_t query):
         '''
         Compute the query-document relevance scores
 
@@ -25,6 +29,11 @@ cdef class QueryDocumentRelevance:
         '''
         # cython will handle the conversion for us...
         return self._qdr_ptr.score(document, query)
+
+    def score(self, word_counts_t document, word_counts_t query):
+        # cython will handle the conversion for us...
+        return self._qdr_ptr.score(document, query)
+
 
     def score_batch(self, document, queries):
         '''
