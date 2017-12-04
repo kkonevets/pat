@@ -355,7 +355,8 @@ if __name__ == '__main__':
     # ################################## BM25 #####################################
 
     from qdr import Trainer
-    reload(bm25)
+    from qdr import QueryDocumentRelevance
+    # reload(bm25)
 
     list_block = glob('../data/documents/*')
     list_block.sort(key=natural_keys)
@@ -368,15 +369,16 @@ if __name__ == '__main__':
     model.train(corpus_iter)
     bm25.serialize_to_file(model, fname)
 
-    model = bm25.load_from_file(fname)
+    model = QueryDocumentRelevance.load_from_file(fname)
 
+    corpus = corpora.MmCorpus('../data/corpus.mm')
     scores = []
-    for i, doc in enumerate(corpus_iter):
+    for i, doc in enumerate(tqdm(corpus, total=len(corpus))):
         if i == 0:
-            q = doc
+            q = {bytes(k): v for k, v in doc}
             continue
         if len(doc):
-            s = model.score(doc, q)
+            s = model.score_counts({bytes(k): v for k, v in doc}, q)
         else:
             s = None
         scores.append(s)
