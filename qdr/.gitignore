@@ -18,5 +18,5 @@ build
 # cython genenerated in the build process
 qdr/ranker.cpp
 
-.DS_Store
+
 

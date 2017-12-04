@@ -1,3 +1,0 @@
-nose
-coverage
-Cython>=0.21

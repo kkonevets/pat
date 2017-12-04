@@ -15,10 +15,10 @@ nose:
 	nosetests --exe --cover-package=qdr --with-coverage --cover-branches -v --cover-erase 
 
 unittest:
-	python -m unittest discover -s test
+	python3 -m unittest discover -s test
 
 build: clean
-	python setup.py build_ext --inplace
+	python3 setup.py build_ext --inplace
 
 install: build
-	python setup.py install
+	python3 setup.py install
