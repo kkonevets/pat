@@ -4,3 +4,4 @@ __pycache__/*
 pat.sublime-project
 pat.sublime-workspace
 .idea/*
+.DS_Store
