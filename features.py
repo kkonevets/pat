@@ -304,8 +304,37 @@ def save_qdr_features(model, corpus, samples):
     print("got scores")
 
     with open('../data/qdr_scores.pkl', 'wb') as f:
-        pickle.dump([1,2], f)
+        pickle.dump(scores, f)
 
+
+def bm25_sanity_check(model, corpus, samples):
+    all_ids = load_keys('../data/keys.json')
+    ix_map = {vi: i for i, vi in enumerate(all_ids)}
+
+    all_sampled_docs = list(corpus[list(range(len(all_ids)))])
+    print('loaded')
+
+
+    scores = []
+    for ix in tqdm(range(len(all_ids))):
+        if ix == 0:
+            print(all_ids[ix])
+            q = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
+            continue
+
+        doc = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
+        if len(doc):
+            _sc = model.score(doc, q)
+            scores.append(_sc)
+
+
+    with open('../data/qdr_scores_0.pkl', 'wb') as f:
+        pickle.dump(scores, f)
+
+
+    scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
+    scored = list(sorted(scored, key=itemgetter(1), reverse=True))
+    scored[:10]
 
 
 
@@ -401,35 +430,9 @@ corpus = corpora.MmCorpus('../data/corpus.mm')
 
 save_qdr_features(model, corpus, samples)
 
-#########################################################################
+###################### bm25 sanity check #######################################
 
-all_ids = load_keys('../data/keys.json')
-ix_map = {vi: i for i, vi in enumerate(all_ids)}
-
-all_sampled_docs = list(corpus[list(range(len(all_ids)))])
-print('loaded')
-
-
-scores = []
-for ix in tqdm(range(len(all_ids))):
-    if ix == 0:
-        print(all_ids[ix])
-        q = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
-        continue
-
-    doc = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
-    if len(doc):
-        _sc = model.score(doc, q)
-        scores.append(_sc)
-
-
-with open('../data/qdr_scores_0.pkl', 'wb') as f:
-    pickle.dump(scores, f)
-
-
-scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
-scored = list(sorted(scored, key=itemgetter(1), reverse=True))
-scored[:10]
+bm25_sanity_check(model, corpus, samples)
 
 # ############################## gen features ##################################
 
