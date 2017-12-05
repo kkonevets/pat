@@ -391,7 +391,6 @@ with open('../data/sampled.json', 'r') as f:
 # ################################## BM25 #####################################
 
 fname = '../data/qdr_model.gz'
-fname = '../data/qdr_model.gz'
 
 model = Trainer()
 model.train(corpus_iter)
@@ -419,8 +418,9 @@ for ix in tqdm(range(len(all_ids))):
         continue
 
     doc = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
-    _sc = model.score(doc, q)
-    scores.append(_sc)
+    if len(doc):
+        _sc = model.score(doc, q)
+        scores.append(_sc)
 
 
 with open('../data/qdr_scores_0.pkl', 'wb') as f:
