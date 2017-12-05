@@ -271,52 +271,51 @@ def gen_train_samples(keys_tv):
     return samples
 
 
-if __name__ == '__main__':
-    corpus = corpora.MmCorpus('../data/corpus.mm')
+corpus = corpora.MmCorpus('../data/corpus.mm')
 
-    # ############################# smart neg sample ############################
+# ############################# smart neg sample ############################
 
-    # samples = gen_train_samples(keys_tv)
-    with open('../data/sampled.json', 'r') as f:
-        samples = json.load(f)
+# samples = gen_train_samples(keys_tv)
+with open('../data/sampled.json', 'r') as f:
+    samples = json.load(f)
 
-    # ################################## BM25 #####################################
+# ################################## BM25 #####################################
 
-    from qdr import Trainer, QueryDocumentRelevance
+from qdr import Trainer, QueryDocumentRelevance
 
-    fname = '../data/qdr_model.gz'
+fname = '../data/qdr_model.gz'
 
-    model = QueryDocumentRelevance.load_from_file(fname)
-    corpus = corpora.MmCorpus('../data/corpus.mm')
+model = QueryDocumentRelevance.load_from_file(fname)
+corpus = corpora.MmCorpus('../data/corpus.mm')
 
-    l = []
-    for el in samples:
-        l.append(el[0])
-        for ix in chain(*el[1:]):
-            l.append(ix)
-    sample_ids = sorted(list(set(l)))
-    sample_ids_map = {ix: i for i, ix in enumerate(sample_ids)}
+l = []
+for el in samples:
+    l.append(el[0])
+    for ix in chain(*el[1:]):
+        l.append(ix)
+sample_ids = sorted(list(set(l)))
+sample_ids_map = {ix: i for i, ix in enumerate(sample_ids)}
 
-    all_sampled_docs = list(corpus[sample_ids])
-    print('loaded')
+all_sampled_docs = list(corpus[sample_ids])
+print('loaded')
 
-    scores = []
-    for el in tqdm(samples):
-        _scores = [el[0]]
-        ixs = [el[0]] + el[1] + el[2]
-        docs = [all_sampled_docs[sample_ids_map[ix]] for ix in ixs]
-        q = {str(k).encode(): v for k, v in docs[0]}
+scores = []
+for el in tqdm(samples):
+    _scores = [el[0]]
+    ixs = [el[0]] + el[1] + el[2]
+    docs = [all_sampled_docs[sample_ids_map[ix]] for ix in ixs]
+    q = {str(k).encode(): v for k, v in docs[0]}
 
-        sim_scores = [model.score({str(k).encode(): v for k, v in doc}, q)
-            for doc in docs[1:len(el[1])+1]]
-        _scores.append(sim_scores)
-        neg_scores = [model.score({str(k).encode(): v for k, v in doc}, q)
-            for doc in docs[len(el[1])+1:]]
-        _scores.append(neg_scores)
-        scores.append(_scores)
+    sim_scores = [model.score({str(k).encode(): v for k, v in doc}, q)
+        for doc in docs[1:len(el[1])+1]]
+    _scores.append(sim_scores)
+    neg_scores = [model.score({str(k).encode(): v for k, v in doc}, q)
+        for doc in docs[len(el[1])+1:]]
+    _scores.append(neg_scores)
+    scores.append(_scores)
 
-    print("got scores")
+print("got scores")
 
-    with GzipFile('../data/qdr_scores.json.gz') as f:
-        json.dump(scores, f)
+with open('../data/qdr_scores.pkl', 'wb') as f:
+    pickle.dump([1,2], f)
 

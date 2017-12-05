@@ -9,6 +9,8 @@ from sklearn.model_selection import train_test_split
 from itertools import *
 from importlib import reload
 from operator import attrgetter
+from qdr import Trainer, QueryDocumentRelevance
+
 
 SEED = 0
 
@@ -271,6 +273,41 @@ def gen_train_samples(keys_tv):
     return samples
 
 
+def save_qdr_features(model, corpus, samples):
+    l = []
+    for el in samples:
+        l.append(el[0])
+        for ix in chain(*el[1:]):
+            l.append(ix)
+    sample_ids = sorted(list(set(l)))
+    sample_ids_map = {ix: i for i, ix in enumerate(sample_ids)}
+
+    # load all corpus in to RAM
+    all_sampled_docs = list(corpus[sample_ids])
+    print('loaded')
+
+    scores = []
+    for el in tqdm(samples):
+        _scores = [el[0]]
+        ixs = [el[0]] + el[1] + el[2]
+        docs = [all_sampled_docs[sample_ids_map[ix]] for ix in ixs]
+        q = {str(k).encode(): v for k, v in docs[0]}
+
+        sim_scores = [model.score({str(k).encode(): v for k, v in doc}, q)
+            for doc in docs[1:len(el[1])+1]]
+        _scores.append(sim_scores)
+        neg_scores = [model.score({str(k).encode(): v for k, v in doc}, q)
+            for doc in docs[len(el[1])+1:]]
+        _scores.append(neg_scores)
+        scores.append(_scores)
+
+    print("got scores")
+
+    with open('../data/qdr_scores.pkl', 'wb') as f:
+        pickle.dump([1,2], f)
+
+
+
 
 client = MongoClient()
 db = client.fips
@@ -353,13 +390,7 @@ with open('../data/sampled.json', 'r') as f:
 
 # ################################## BM25 #####################################
 
-from qdr import Trainer, QueryDocumentRelevance
-
-list_block = glob('../data/documents/*')
-list_block.sort(key=natural_keys)
-corpus_iter = iter_docs(list_block, encode=True)
-all_ids = load_keys('../data/keys.json')
-
+fname = '../data/qdr_model.gz'
 fname = '../data/qdr_model.gz'
 
 model = Trainer()
@@ -369,36 +400,35 @@ model.serialize_to_file(fname)
 model = QueryDocumentRelevance.load_from_file(fname)
 corpus = corpora.MmCorpus('../data/corpus.mm')
 
-l = []
-for el in samples:
-    l.append(el[0])
-    for ix in chain(*el[1:]):
-        l.append(ix)
-sample_ids = sorted(list(set(l)))
-sample_ids_map = {ix: i for i, ix in enumerate(sample_ids)}
+save_qdr_features(model, corpus, samples)
 
+#########################################################################
 
-all_sampled_docs = list(corpus[sample_ids[:100000]])
+list_block = glob('../data/documents/*')
+list_block.sort(key=natural_keys)
+corpus_iter = iter_docs(list_block, encode=True)
+all_ids = load_keys('../data/keys.json')
+ix_map = {vi: i for i, vi in enumerate(all_ids)}
+
+all_sampled_docs = list(corpus[range(len(all_ids))])
 print('loaded')
 
+
 scores = []
-for el in tqdm(samples):
-    _scores = [el[0]]
-    ixs = [el[0]] + el[1] + el[2]
-    docs = [all_sampled_docs[sample_ids_map[ix]] for ix in ixs]
-    q = {bytes(k): v for k, v in docs[0]}
-    # sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
-    #     for doc in docs[1:len(el[1])+1]]
-    # _scores.append(sim_scores)
-    # neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
-    #     for doc in docs[len(el[1])+1:]]
-    # _scores.append(neg_scores)
-    # scores.append(_scores)
+for ix in tqdm(range(len(all_ids))):
+    if ix == 0:
+        print(all_ids[ix])
+        q = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
+        continue
 
-print("got scores")
+    doc = {str(k).encode(): v for k, v in all_sampled_docs[ix]}
+    _sc = model.score(doc, q)
+    scores.append(_sc)
 
-with open('../data/qdr_scores.pkl') as f:
+
+with open('../data/qdr_scores_0.pkl', 'wb') as f:
     pickle.dump(scores, f)
+
 
 scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
 scored = list(sorted(scored, key=itemgetter(1), reverse=True))
