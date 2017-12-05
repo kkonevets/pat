@@ -271,146 +271,146 @@ def gen_train_samples(keys_tv):
     return samples
 
 
-if __name__ == '__main__':
-    client = MongoClient()
-    db = client.fips
 
-    #   ####################### save to json ###############################
+client = MongoClient()
+db = client.fips
 
-    docs_ids = [doc['_id'] for doc in db.patents.find({}, {'_id': 1})]
+#   ####################### save to json ###############################
 
-    parallelizer = Parallel(n_jobs=cpu_count)
-    tasks_iterator = (delayed(save_json)(list_block, i, raw=True) for
-                      i, list_block in enumerate(grouper(len(docs_ids) // 1000, docs_ids)))
-    result = parallelizer(tasks_iterator)
+docs_ids = [doc['_id'] for doc in db.patents.find({}, {'_id': 1})]
 
-    #   ####################### save corpus #################################
+parallelizer = Parallel(n_jobs=cpu_count)
+tasks_iterator = (delayed(save_json)(list_block, i, raw=True) for
+                  i, list_block in enumerate(grouper(len(docs_ids) // 1000, docs_ids)))
+result = parallelizer(tasks_iterator)
 
-    list_block = glob('../data/documents/*')
-    list_block.sort(key=natural_keys)
-    save_corpus(list_block, '../data', prefix='corpus')
+#   ####################### save corpus #################################
 
-    #   ########################### tfidf ####################################
+list_block = glob('../data/documents/*')
+list_block.sort(key=natural_keys)
+save_corpus(list_block, '../data', prefix='corpus')
 
-    dictionary = corpora.Dictionary.load('../data/corpus.dict')
-    corpus = corpora.MmCorpus('../data/corpus.mm')
-    # build_tfidf_index(dictionary, corpus, anew=True)
+#   ########################### tfidf ####################################
 
-    index = similarities.Similarity.load('../data/sim_index/sim')
-    tfidf = models.TfidfModel.load('../data/tfidf.model')
+dictionary = corpora.Dictionary.load('../data/corpus.dict')
+corpus = corpora.MmCorpus('../data/corpus.mm')
+# build_tfidf_index(dictionary, corpus, anew=True)
 
-    #   ####################### fetch ids data ###############################
+index = similarities.Similarity.load('../data/sim_index/sim')
+tfidf = models.TfidfModel.load('../data/tfidf.model')
 
-    all_ids = load_keys('../data/keys.json')
-    ix_map = {vi: i for i, vi in enumerate(all_ids)}
-    sims = load_sims('../data/sims.json')
-    with open('../data/gold_mongo.json', 'r') as f:
-        gold = json.load(f)
+#   ####################### fetch ids data ###############################
 
-    # ############################ small test  ##################################
+all_ids = load_keys('../data/keys.json')
+ix_map = {vi: i for i, vi in enumerate(all_ids)}
+sims = load_sims('../data/sims.json')
+with open('../data/gold_mongo.json', 'r') as f:
+    gold = json.load(f)
 
-    ixs = [ix_map[k] for k in gold.keys()]
-    preds = tfidf_batch_predict(all_ids, ixs, limit=200)
-    res = evaluate(preds, gold)
-    """
-    acc10 0.286738
-    acc20 0.347670
-    acc200 0.573477
-    """
+# ############################ small test  ##################################
 
-    # ######################### train val test split ############################
+ixs = [ix_map[k] for k in gold.keys()]
+preds = tfidf_batch_predict(all_ids, ixs, limit=200)
+res = evaluate(preds, gold)
+"""
+acc10 0.286738
+acc20 0.347670
+acc200 0.573477
+"""
 
-    # train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
-    keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
-    keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
+# ######################### train val test split ############################
 
-    ixs_train = [ix_map[k] for k in keys_train]
-    ixs_val = [ix_map[k] for k in keys_val]
-    ixs_test = [ix_map[k] for k in keys_test]
+# train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
+keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
+keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
 
-    # ############################ get stat #####################################
+ixs_train = [ix_map[k] for k in keys_train]
+ixs_val = [ix_map[k] for k in keys_val]
+ixs_test = [ix_map[k] for k in keys_test]
 
-    df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
-    # df.plot.hist(bins=100)
-    df.describe()
-    q = range(10, 100, 10)
-    percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
-    neg_ixs = df['rank'].values
-    random.seed(SEED)
-    random.shuffle(neg_ixs)
+# ############################ get stat #####################################
 
-    # ############################# smart neg sample ############################
+df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
+# df.plot.hist(bins=100)
+df.describe()
+q = range(10, 100, 10)
+percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
+neg_ixs = df['rank'].values
+random.seed(SEED)
+random.shuffle(neg_ixs)
 
-    # samples = gen_train_samples(keys_tv)
-    with open('../data/sampled.json', 'r') as f:
-        samples = json.load(f)
+# ############################# smart neg sample ############################
 
-    # i = 33
-    # samples[i]
-    # print(all_ids[samples[i][0]])
-    # print([all_ids[ix] for ix in samples[i][1]])
-    # print([all_ids[ix] for ix in samples[i][2]])
+# samples = gen_train_samples(keys_tv)
+with open('../data/sampled.json', 'r') as f:
+    samples = json.load(f)
 
-    # ################################## BM25 #####################################
+# i = 33
+# samples[i]
+# print(all_ids[samples[i][0]])
+# print([all_ids[ix] for ix in samples[i][1]])
+# print([all_ids[ix] for ix in samples[i][2]])
 
-    from qdr import Trainer, QueryDocumentRelevance
+# ################################## BM25 #####################################
 
-    list_block = glob('../data/documents/*')
-    list_block.sort(key=natural_keys)
-    corpus_iter = iter_docs(list_block, encode=True)
-    all_ids = load_keys('../data/keys.json')
+from qdr import Trainer, QueryDocumentRelevance
 
-    fname = '../data/qdr_model.gz'
+list_block = glob('../data/documents/*')
+list_block.sort(key=natural_keys)
+corpus_iter = iter_docs(list_block, encode=True)
+all_ids = load_keys('../data/keys.json')
 
-    model = Trainer()
-    model.train(corpus_iter)
-    model.serialize_to_file(fname)
+fname = '../data/qdr_model.gz'
 
-    model = QueryDocumentRelevance.load_from_file(fname)
-    corpus = corpora.MmCorpus('../data/corpus.mm')
+model = Trainer()
+model.train(corpus_iter)
+model.serialize_to_file(fname)
 
-    l = []
-    for el in samples:
-        l.append(el[0])
-        for ix in chain(*el[1:]):
-            l.append(ix)
-    sample_ids = sorted(list(set(l)))
+model = QueryDocumentRelevance.load_from_file(fname)
+corpus = corpora.MmCorpus('../data/corpus.mm')
 
-    for doc in corpus:
-        break
+l = []
+for el in samples:
+    l.append(el[0])
+    for ix in chain(*el[1:]):
+        l.append(ix)
+sample_ids = sorted(list(set(l)))
 
-    all_sampled_docs = list(corpus[sample_ids])
-    print('loaded')
+for doc in corpus:
+    break
 
-    scores = []
-    for el in tqdm(samples):
-        _scores = [el[0]]
-        ixs = [el[0]] + el[1] + el[2]
-        docs = list(corpus[ixs])
-        q = {bytes(k): v for k, v in docs[0]}
-        sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
-            for doc in docs[1:len(el[1])+1]]
-        _scores.append(sim_scores)
-        neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
-            for doc in docs[len(el[1])+1:]]
-        _scores.append(neg_scores)
-        scores.append(_scores)
+all_sampled_docs = list(corpus[sample_ids])
+print('loaded')
 
-    print("got scores")
+scores = []
+for el in tqdm(samples):
+    _scores = [el[0]]
+    ixs = [el[0]] + el[1] + el[2]
+    docs = list(corpus[ixs])
+    q = {bytes(k): v for k, v in docs[0]}
+    sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
+        for doc in docs[1:len(el[1])+1]]
+    _scores.append(sim_scores)
+    neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
+        for doc in docs[len(el[1])+1:]]
+    _scores.append(neg_scores)
+    scores.append(_scores)
 
-    with open('../data/qdr_scores.pkl') as f:
-        pickle.dump(scores, f)
+print("got scores")
 
-    scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
-    scored = list(sorted(scored, key=itemgetter(1), reverse=True))
-    scored[:10]
+with open('../data/qdr_scores.pkl') as f:
+    pickle.dump(scores, f)
 
-    # ############################## gen features ##################################
+scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
+scored = list(sorted(scored, key=itemgetter(1), reverse=True))
+scored[:10]
 
-    doc_ix = 591814
+# ############################## gen features ##################################
+
+doc_ix = 591814
 
 
-    def get_features(doc_ix):
-        1
+def get_features(doc_ix):
+    1
 
-    # ############################################################################
+# ############################################################################

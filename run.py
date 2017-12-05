@@ -316,6 +316,6 @@ if __name__ == '__main__':
 
     print("got scores")
 
-    with open('../data/qdr_scores.pkl') as f:
-        pickle.dump(scores, f)
+    with GzipFile('../data/qdr_scores.json.gz') as f:
+        json.dump(scores, f)
 
