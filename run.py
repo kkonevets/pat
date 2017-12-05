@@ -310,7 +310,7 @@ if __name__ == '__main__':
         sim_scores = [{str(k).encode(): v for k, v in doc}
             for doc in docs[1:len(el[1])+1]]
         _scores.append(sim_scores)
-        neg_scores = [str(k).encode(): v for k, v in doc
+        neg_scores = [{str(k).encode(): v for k, v in doc}
             for doc in docs[len(el[1])+1:]]
         _scores.append(neg_scores)
         scores.append(_scores)
