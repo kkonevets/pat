@@ -404,13 +404,10 @@ save_qdr_features(model, corpus, samples)
 
 #########################################################################
 
-list_block = glob('../data/documents/*')
-list_block.sort(key=natural_keys)
-corpus_iter = iter_docs(list_block, encode=True)
 all_ids = load_keys('../data/keys.json')
 ix_map = {vi: i for i, vi in enumerate(all_ids)}
 
-all_sampled_docs = list(corpus[range(len(all_ids))])
+all_sampled_docs = list(corpus[list(range(len(all_ids)))])
 print('loaded')
 
 
