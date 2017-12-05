@@ -376,8 +376,11 @@ if __name__ == '__main__':
             l.append(ix)
     sample_ids = sorted(list(set(l)))
 
+    for doc in corpus:
+        break
+
     all_sampled_docs = list(corpus[sample_ids])
-    
+    print('loaded')
 
     scores = []
     for el in tqdm(samples):
@@ -393,6 +396,10 @@ if __name__ == '__main__':
         _scores.append(neg_scores)
         scores.append(_scores)
 
+    print("got scores")
+
+    with open('../data/qdr_scores.pkl') as f:
+        pickle.dump(scores, f)
 
     scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
     scored = list(sorted(scored, key=itemgetter(1), reverse=True))

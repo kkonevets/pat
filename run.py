@@ -1,3 +1,4 @@
+
 from common import *
 from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -6,6 +7,8 @@ import ujson
 import random
 from sklearn.model_selection import train_test_split
 from itertools import *
+from importlib import reload
+from operator import attrgetter
 
 SEED = 0
 
@@ -44,20 +47,35 @@ def save_json(ids, prefix, raw=True):
         docs[str(_id)] = doc_tokenized
 
     fname = join(DATA_FOLDER, 'documents', '%s' % prefix + '.json.gz')
+    save_texts(docs, fname)
+
+    gc.collect()
+
+
+def save_texts(docs, fname):
     with GzipFile(fname, 'w') as fout:
         json_str = json.dumps(docs, ensure_ascii=False)
         json_bytes = json_str.encode('utf-8')
         fout.write(json_bytes)
 
-    gc.collect()
 
+def iter_docs(fnames, encode=False, with_ids=False, as_is=False):
+    def do_encode(w):
+        return w.encode() if encode else w
 
-def iter_docs(fnames):
     for filename in tqdm(fnames):
         with GzipFile(filename) as f:
             data = ujson.load(f)
-        for doc in data.values():
-            yield [w for t in doc.values() for s in t for w in s]
+        for _id, doc in data.items():
+            if as_is:
+                text = doc
+            else:
+                text = [do_encode(w) for t in doc.values() for s in t for w in s]
+
+            if with_ids:
+                yield (_id, text)
+            else:
+                yield text
 
 
 def keys_from_json(fnames):
@@ -235,52 +253,13 @@ def tfidf_worker(keys):
     return samples
 
 
-if __name__ == '__main__':
-
-    dictionary = corpora.Dictionary.load('../data/corpus.dict')
-    corpus = corpora.MmCorpus('../data/corpus.mm')
-    # build_tfidf_index(dictionary, corpus, anew=True)
-
-    index = similarities.Similarity.load('../data/sim_index/sim')
-    tfidf = models.TfidfModel.load('../data/tfidf.model')
-
-    #   ####################### fetch ids data ###############################
-
-    all_ids = load_keys('../data/keys.json')
-    ix_map = {vi: i for i, vi in enumerate(all_ids)}
-    sims = load_sims('../data/sims.json')
-    with open('../data/gold_mongo.json', 'r') as f:
-        gold = json.load(f)
-
-    # ############################ small test  ##################################
-
-    # train, val, test = train_val_test_tups(ix_map, sims, n=1, seed=SEED)
-    keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
-    keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
-
-    ixs_train = [ix_map[k] for k in keys_train]
-    ixs_val = [ix_map[k] for k in keys_val]
-    ixs_test = [ix_map[k] for k in keys_test]
-
-    # ############################ get stat #####################################
-
-    df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
-    # df.plot.hist(bins=100)
-    df.describe()
-    q = range(10, 100, 10)
-    percentiles = pd.DataFrame([np.percentile(df['rank'], q)], columns=q)
-    neg_ixs = df['rank'].values
-    random.seed(SEED)
-    random.shuffle(neg_ixs)
-
-    # #################################################################################
-
+def gen_train_samples(keys_tv):
     samples = []
     # try:
     #     os.remove('../data/foundat.csv')
     # except OSError:
     #     pass
-    for keys_part in tqdm(np.array_split(keys_tv, 500)):
+    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
             (delayed(tfidf_worker)(part) for
              part in np.array_split(keys_part, cpu_count))
@@ -289,11 +268,53 @@ if __name__ == '__main__':
     with open('../data/sampled.json', 'w') as f:
         json.dump(samples, f)
 
+    return samples
 
 
+if __name__ == '__main__':
+    corpus = corpora.MmCorpus('../data/corpus.mm')
 
+    # ############################# smart neg sample ############################
 
+    # samples = gen_train_samples(keys_tv)
+    with open('../data/sampled.json', 'r') as f:
+        samples = json.load(f)
 
+    # ################################## BM25 #####################################
 
+    from qdr import Trainer, QueryDocumentRelevance
 
-    # ############################################################################
+    fname = '../data/qdr_model.gz'
+
+    model = QueryDocumentRelevance.load_from_file(fname)
+    corpus = corpora.MmCorpus('../data/corpus.mm')
+
+    l = []
+    for el in samples:
+        l.append(el[0])
+        for ix in chain(*el[1:]):
+            l.append(ix)
+    sample_ids = sorted(list(set(l)))
+
+    all_sampled_docs = list(corpus[sample_ids])
+    print('loaded')
+
+    scores = []
+    for el in tqdm(samples):
+        _scores = [el[0]]
+        ixs = [el[0]] + el[1] + el[2]
+        docs = list(corpus[ixs])
+        q = {bytes(k): v for k, v in docs[0]}
+        sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
+            for doc in docs[1:len(el[1])+1]]
+        _scores.append(sim_scores)
+        neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
+            for doc in docs[len(el[1])+1:]]
+        _scores.append(neg_scores)
+        scores.append(_scores)
+
+    print("got scores")
+
+    with open('../data/qdr_scores.pkl') as f:
+        pickle.dump(scores, f)
+
