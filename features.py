@@ -375,26 +375,25 @@ for el in samples:
     for ix in chain(*el[1:]):
         l.append(ix)
 sample_ids = sorted(list(set(l)))
+sample_ids_map = {ix: i for i, ix in enumerate(sample_ids)}
 
-for doc in corpus:
-    break
 
-all_sampled_docs = list(corpus[sample_ids])
+all_sampled_docs = list(corpus[sample_ids[:100000]])
 print('loaded')
 
 scores = []
 for el in tqdm(samples):
     _scores = [el[0]]
     ixs = [el[0]] + el[1] + el[2]
-    docs = list(corpus[ixs])
+    docs = [all_sampled_docs[sample_ids_map[ix]] for ix in ixs]
     q = {bytes(k): v for k, v in docs[0]}
-    sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
-        for doc in docs[1:len(el[1])+1]]
-    _scores.append(sim_scores)
-    neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
-        for doc in docs[len(el[1])+1:]]
-    _scores.append(neg_scores)
-    scores.append(_scores)
+    # sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
+    #     for doc in docs[1:len(el[1])+1]]
+    # _scores.append(sim_scores)
+    # neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
+    #     for doc in docs[len(el[1])+1:]]
+    # _scores.append(neg_scores)
+    # scores.append(_scores)
 
 print("got scores")
 

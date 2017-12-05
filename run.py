@@ -306,13 +306,13 @@ if __name__ == '__main__':
         ixs = [el[0]] + el[1] + el[2]
         docs = [all_sampled_docs[sample_ids_map[ix]] for ix in ixs]
         q = {bytes(k): v for k, v in docs[0]}
-        sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
-            for doc in docs[1:len(el[1])+1]]
-        _scores.append(sim_scores)
-        neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
-            for doc in docs[len(el[1])+1:]]
-        _scores.append(neg_scores)
-        scores.append(_scores)
+        # sim_scores = [model.score({bytes(k): v for k, v in doc}, q)
+        #     for doc in docs[1:len(el[1])+1]]
+        # _scores.append(sim_scores)
+        # neg_scores = [model.score({bytes(k): v for k, v in doc}, q)
+        #     for doc in docs[len(el[1])+1:]]
+        # _scores.append(neg_scores)
+        # scores.append(_scores)
 
     print("got scores")
 
