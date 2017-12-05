@@ -367,8 +367,18 @@ if __name__ == '__main__':
     model.serialize_to_file(fname)
 
     model = QueryDocumentRelevance.load_from_file(fname)
-
     corpus = corpora.MmCorpus('../data/corpus.mm')
+
+    l = []
+    for el in samples:
+        l.append(el[0])
+        for ix in chain(*el[1:]):
+            l.append(ix)
+    sample_ids = sorted(list(set(l)))
+
+    all_sampled_docs = list(corpus[sample_ids])
+    
+
     scores = []
     for el in tqdm(samples):
         _scores = [el[0]]
