@@ -15,6 +15,18 @@ from qdr import Trainer, QueryDocumentRelevance
 SEED = 0
 
 
+def chunkIt(seq, num):
+    avg = len(seq) / float(num)
+    out = []
+    last = 0.0
+
+    while last < len(seq):
+        out.append(seq[int(last):int(last + avg)])
+        last += avg
+
+    return out
+
+
 def save_json(ids, prefix, raw=True):
     client = MongoClient()
     db = client.fips
@@ -339,10 +351,10 @@ def save_tfidf_features(corpus, samples):
         return picked
 
     scores = []
-    for samples_part in tqdm(np.array_split(samples, 2000)):
+    for samples_part in tqdm(chunkIt(samples, 500)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
             (delayed(worker)(part) for
-             part in np.array_split(samples_part, cpu_count))
+             part in chunkIt(samples_part, cpu_count))
         scores += list(chain.from_iterable(res))
 
     with open('../data/tfidf_scores.pkl', 'wb') as f:
@@ -528,8 +540,27 @@ def get_features(doc_ix):
 # ############################################################################
 
 
+l = range(10)
+for el in chunkIt(l, 3):
+    print(list(el))
 
 
+def worker(part):
+    keys_sample = [all_ids[el[0]] for el in part]
+    cosines = get_cosines(keys_sample)
+    args = zip(cosines, part)
+    picked = list(starmap(pick_scores, args))
+    return picked
+
+scores = []
+for samples_part in tqdm(chunkIt(samples, 2000)):
+    res = Parallel(n_jobs=cpu_count, backend="threading") \
+        (delayed(worker)(part) for
+         part in chunkIt(samples_part, cpu_count))
+    scores += list(chain.from_iterable(res))
+
+with open('../data/tfidf_scores.pkl', 'wb') as f:
+    pickle.dump(scores, f)
 
 
 
