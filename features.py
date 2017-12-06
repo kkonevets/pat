@@ -246,10 +246,15 @@ def found_at(iix, key):
     return np.where(ixs)[0]
 
 
-def argsort(keys):
+def get_cosines(keys):
     ixs = [ix_map[k] for k in keys]
     batch = tfidf[itemgetter(*ixs)(corpus)]
     cosines = index[batch]
+    return cosines
+
+
+def argsort(keys):
+    cosines = get_cosines(keys)
     # reversed sort
     argsorted = np.argsort(-cosines)
     return argsorted
@@ -260,12 +265,7 @@ def tfidf_worker(keys):
     # first element is a query itself
     args = ((iix[1:], key) for iix, key in
             zip(argsorted, keys))
-
-    samples = list(starmap(sample_negs, args))
-
-    # found = list(chain.from_iterable((starmap(found_at, args2))))
-
-    return samples
+    return args
 
 
 def gen_train_samples(keys_tv):
@@ -274,9 +274,15 @@ def gen_train_samples(keys_tv):
     #     os.remove('../data/foundat.csv')
     # except OSError:
     #     pass
+    def worker(keys):
+        args = tfidf_worker(keys)
+        samples = list(starmap(sample_negs, args))
+        # found = list(chain.from_iterable((starmap(found_at, args2))))
+        return samples
+
     for keys_part in tqdm(np.array_split(keys_tv, 500)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
-            (delayed(tfidf_worker)(part) for
+            (delayed(worker)(part) for
              part in np.array_split(keys_part, cpu_count))
         samples += list(chain.from_iterable(res))
 
@@ -317,6 +323,29 @@ def save_qdr_features(model, corpus, samples):
     print("got scores")
 
     with open('../data/qdr_scores.pkl', 'wb') as f:
+        pickle.dump(scores, f)
+
+
+def pick_scores(cosine_list, sample):
+    return [sample[0], cosine_list[sample[1]], cosine_list[sample[2]]]
+
+
+def save_tfidf_features(corpus, samples):
+    def worker(part):
+        keys_sample = [all_ids[el[0]] for el in part]
+        cosines = get_cosines(keys_sample)
+        args = zip(cosines, part)
+        picked = list(starmap(pick_scores, args))
+        return picked
+
+    scores = []
+    for samples_part in tqdm(np.array_split(samples, 2000)):
+        res = Parallel(n_jobs=cpu_count, backend="threading") \
+            (delayed(worker)(part) for
+             part in np.array_split(samples_part, cpu_count))
+        scores += list(chain.from_iterable(res))
+
+    with open('../data/tfidf_scores.pkl', 'wb') as f:
         pickle.dump(scores, f)
 
 
