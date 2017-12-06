@@ -8,7 +8,7 @@ import random
 from sklearn.model_selection import train_test_split
 from itertools import *
 from importlib import reload
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 from qdr import Trainer, QueryDocumentRelevance
 
 
@@ -208,6 +208,19 @@ def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
     return train, val, test
 
 
+def first_unique(iterable, n):
+    """
+    iterable = [1,2,1,7,2,5,6,1,3], n = 4 -> [1, 2, 7, 5]
+    """
+    unique = set()
+    def condition(x):
+        nonlocal unique, n
+        unique.update([x])
+        return len(unique) <= n
+    filtered = filterfalse(lambda x: x in unique, iterable)
+    return takewhile(condition, filtered)
+
+
 def sample_negs(iix, key, k=1):
     key_ix = ix_map[key]
     posvs = [ix_map[k] for k in sims[key]]
@@ -222,7 +235,7 @@ def sample_negs(iix, key, k=1):
     worst = int(percentiles[90][0])
     filtered = filterfalse(lambda x: x in exclude + close_negs,
                            (int(iix[j]) for j in neg_ixs[i:]))
-    far_negs = list(set(islice(filtered, size))) + [int(iix[worst])]
+    far_negs = list(first_unique(filtered, size)) + [int(iix[worst])]
 
     return key_ix, posvs, close_negs + far_negs
 
@@ -235,7 +248,7 @@ def found_at(iix, key):
 
 def argsort(keys):
     ixs = [ix_map[k] for k in keys]
-    batch = tfidf[corpus[ixs]]
+    batch = tfidf[itemgetter(*ixs)(corpus)]
     cosines = index[batch]
     # reversed sort
     argsorted = np.argsort(-cosines)
@@ -261,7 +274,7 @@ def gen_train_samples(keys_tv):
     #     os.remove('../data/foundat.csv')
     # except OSError:
     #     pass
-    for keys_part in tqdm(np.array_split(keys_tv, 2000)):
+    for keys_part in tqdm(np.array_split(keys_tv, 500)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
             (delayed(tfidf_worker)(part) for
              part in np.array_split(keys_part, cpu_count))
@@ -407,8 +420,8 @@ random.shuffle(neg_ixs)
 
 # ############################# smart neg sample ############################
 
-# samples = gen_train_samples(keys_tv)
-with open('../data/sampled.json', 'r') as f:
+samples = gen_train_samples(keys_tv)
+with open('../data/sampled2.json', 'r') as f:
     samples = json.load(f)
 
 # i = 33
@@ -430,6 +443,47 @@ corpus = corpora.MmCorpus('../data/corpus.mm')
 
 save_qdr_features(model, corpus, samples)
 
+with open('../data/qdr_scores.pkl', 'rb') as f:
+    scores = pickle.load(f)
+pprint(scores[4])
+
+sim_bms, close_bms, far_bms, sfar_bms = [], [], [], []
+wrong = 0
+for el in scores:
+    _l = len(el[1])
+    if len(el[2]) != 2*_l+1:
+        wrong += 1
+    for s in el[1]:
+        sim_bms.append(s['bm25'])
+    for s in el[2][:_l]:
+        close_bms.append(s['bm25'])
+    for s in el[2][_l:-1]:
+        far_bms.append(s['bm25'])
+    sfar_bms.append(el[2][-1]['bm25'])
+
+[el for el in samples if el[0] == 922222]
+
+import matplotlib.pylab as plt
+
+
+pd.Series(sim_bms).plot.hist(xlim=(0,10000), ylim=(0,800000))
+plt.show()
+
+pd.Series(close_bms).plot.hist(xlim=(0,10000), ylim=(0,800000))
+plt.show()
+
+pd.Series(far_bms).plot.hist(xlim=(0,10000), ylim=(0,800000))
+plt.show()
+
+pd.Series(sfar_bms).plot.hist(xlim=(0,10000), ylim=(0,800000))
+plt.show()
+
+l = [1,2,1,7,2,5,6,1,3]
+unique = set()
+n = 3
+
+list(first_unique(l, 3))
+
 ###################### bm25 sanity check #######################################
 
 bm25_sanity_check(model, corpus, samples)
@@ -443,3 +497,14 @@ def get_features(doc_ix):
     1
 
 # ############################################################################
+
+
+
+
+
+
+
+
+
+
+
