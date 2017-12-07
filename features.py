@@ -259,6 +259,8 @@ def found_at(iix, key):
 
 
 def get_cosines(keys):
+    if len(keys) == 0:
+        return None
     ixs = [ix_map[k] for k in keys]
     batch = tfidf[itemgetter(*ixs)(corpus)]
     cosines = index[batch]
@@ -344,6 +346,8 @@ def pick_scores(cosine_list, sample):
 
 def save_tfidf_features(corpus, samples):
     def worker(part):
+        if len(part) == 0:
+            return []
         keys_sample = [all_ids[el[0]] for el in part]
         cosines = get_cosines(keys_sample)
         args = zip(cosines, part)
@@ -502,6 +506,12 @@ for el in scores:
         far_bms.append(s['bm25'])
     sfar_bms.append(el[2][-1]['bm25'])
 
+pprint(pd.Series(sim_bms).describe())
+pprint(pd.Series(close_bms).describe())
+pprint(pd.Series(far_bms).describe())
+pprint(pd.Series(sfar_bms).describe())
+
+
 [el for el in samples if el[0] == 922222]
 
 import matplotlib.pylab as plt
@@ -538,6 +548,9 @@ def get_features(doc_ix):
     1
 
 # ############################################################################
+
+
+
 
 
 
