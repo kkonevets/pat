@@ -355,7 +355,7 @@ def save_tfidf_features(corpus, samples):
         return picked
 
     scores = []
-    for samples_part in tqdm(chunkIt(samples, 500)):
+    for samples_part in tqdm(chunkIt(samples, 100)):
         res = Parallel(n_jobs=cpu_count, backend="threading") \
             (delayed(worker)(part) for
              part in chunkIt(samples_part, cpu_count))
@@ -489,8 +489,14 @@ corpus = corpora.MmCorpus('../data/corpus.mm')
 save_qdr_features(model, corpus, samples)
 
 with open('../data/qdr_scores.pkl', 'rb') as f:
-    scores = pickle.load(f)
-pprint(scores[4])
+    qdr_scores = pickle.load(f)
+with open('../data/tfidf_scores.pkl', 'rb') as f:
+    tfidf_scores = pickle.load(f)
+i = 0
+pprint([s if type(s) == int else [si['tfidf'] for si in s] for s in qdr_scores[i]])
+
+pprint(qdr_scores[i])
+pprint(tfidf_scores[i])
 
 sim_bms, close_bms, far_bms, sfar_bms = [], [], [], []
 wrong = 0
@@ -541,11 +547,51 @@ bm25_sanity_check(model, corpus, samples)
 
 # ############################## gen features ##################################
 
-doc_ix = 591814
+names = ['q', 'rank', 'tfidf_qdr', 'bm25', 
+    'lm_jm', 'lm_dirichlet', 'lm_ad', 'tfidf_gs', 'd']
+scores_list = (qdr_scores, tfidf_scores)
+
+def flatten_scores(scs_list, rank_level, ixs, qid):
+    scs_list = list(zip(*scs_list))
+    ret = []
+    for ix, scs in zip(ixs, scs_list):
+        _l = [qid, rank_level]
+        for sc in scs:
+            if type(sc) == dict:
+                _l += list(sc.values())
+            else:
+                _l.append(sc)
+        _l.append(all_ids[ix])
+        ret.append(_l)
+    return ret
+
+samples_dict = {el[0]: el[1:] for el in samples}
+ftrs = []
+for scores in zip(*scores_list):
+    _fs = []
+    ancors, pos, neg = list(zip(*scores))
+    assert len(set(ancors)) == 1
+
+    anc = ancors[0]
+    samp_ixs = samples_dict[anc]
+    pos_ss = flatten_scores(pos, 1, samp_ixs[0], all_ids[anc])
+    neg_ss = flatten_scores(neg, 2, samp_ixs[1], all_ids[anc])
+    ftrs += pos_ss
+    ftrs += neg_ss
+
+ftrs_df = pd.DataFrame(ftrs, columns=names)
+ftrs_df.to_csv('../data/train_val_ftrs.csv')
 
 
-def get_features(doc_ix):
-    1
+
+def ftrs_df(scores_list, names=[]):
+    ftrs = []
+    for scores in zip(*scores_list):
+         ancors, pos, neg = list(zip(*scores))
+         unique = set(ancors)
+         assert len(set(ancors)) == 1
+
+
 
 # ############################################################################
 
