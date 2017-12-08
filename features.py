@@ -10,9 +10,29 @@ from itertools import *
 from importlib import reload
 from operator import attrgetter, itemgetter
 from qdr import Trainer, QueryDocumentRelevance
+from sklearn.metrics import accuracy_score, f1_score, \
+    roc_auc_score, confusion_matrix
+from sklearn.model_selection import GridSearchCV
+from sklearn.utils import shuffle
+from collections import Counter
 
 
 SEED = 0
+
+
+def evaluate(probs, y_test, threshold=0.5):
+    y_pred = (probs >= threshold).astype(int)
+    accuracy = accuracy_score(y_test, y_pred) * 100
+    f1score = f1_score(y_test, y_pred) * 100
+    if len(np.unique(y_test)) != 1:
+        auc = roc_auc_score(y_test, probs) * 100
+    else:
+        auc = 0
+    print("Accuracy: %.2f%%, f1 score: %.2f%%, auc score: %.2f%%" % (accuracy, f1score, auc))
+
+    cm = confusion_matrix(y_test, y_pred)
+    pprint(cm)
+    return cm
 
 
 def chunkIt(seq, num):
@@ -176,50 +196,6 @@ def tfidf_batch_predict(all_ids, ixs, limit=None):
     return preds
 
 
-def sample_tups(ix_map, sims, n=1, seed=0):
-    """
-    :param n: "number of negatives" = n * "number of positives" for each query
-    :return: pairs of documents with relevance
-    """
-    tups = []
-    ixs = list(range(len(ix_map)))
-    random.seed(seed)
-    random.shuffle(ixs)
-
-    it = iter(ixs)
-    for k, v in sims.items():
-        k_ix = ix_map[k]
-        v_ixs = [ix_map[vi] for vi in v]
-        positives = set([k_ix] + v_ixs)
-        for pos in v_ixs:
-            tups.append((k_ix, pos, 1))
-        for i in range(n * len(v)):
-            neg = next(it)
-            while neg in positives:
-                neg = next(it)
-            tups.append((k_ix, neg, 0))
-
-    random.shuffle(tups)
-    return tups
-
-
-def train_val_test_tups(ix_map, sims, n=1, seed=0, test_size=0.2):
-    keys, keys_test = train_test_split(list(sims.keys()), test_size=test_size, random_state=seed)
-    keys_train, keys_val = train_test_split(keys, test_size=test_size, random_state=seed)
-
-    sims_train = {k: sims[k] for k in keys_train}
-    sims_val = {k: sims[k] for k in keys_val}
-    sims_test = {k: sims[k] for k in keys_test}
-
-    train = sample_tups(ix_map, sims_train, n=n, seed=seed)
-    val = sample_tups(ix_map, sims_val, n=n, seed=seed)
-    test = sample_tups(ix_map, sims_test, n=n, seed=seed)
-
-    logging.info("train %s, val %s, test %s" % (len(train), len(val), len(test)))
-
-    return train, val, test
-
-
 def first_unique(iterable, n):
     """
     iterable = [1,2,1,7,2,5,6,1,3], n = 4 -> [1, 2, 7, 5]
@@ -372,7 +348,6 @@ def bm25_sanity_check(model, corpus, samples):
     all_sampled_docs = list(corpus[list(range(len(all_ids)))])
     print('loaded')
 
-
     scores = []
     for ix in tqdm(range(len(all_ids))):
         if ix == 0:
@@ -385,16 +360,50 @@ def bm25_sanity_check(model, corpus, samples):
             _sc = model.score(doc, q)
             scores.append(_sc)
 
-
     with open('../data/qdr_scores_0.pkl', 'wb') as f:
         pickle.dump(scores, f)
 
+    # scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
+    # scored = list(sorted(scored, key=itemgetter(1), reverse=True))
+    # scored[:10]
 
-    scored = zip(all_ids[1:], (s['bm25'] for s in scores if s))
-    scored = list(sorted(scored, key=itemgetter(1), reverse=True))
-    scored[:10]
+
+def save_ftrs_to_dataframe(scores_list, names, samples):
+    def flatten_scores(scs_list, rank_level, ixs, qid):
+        scs_list = list(zip(*scs_list))
+        ret = []
+        for ix, scs in zip(ixs, scs_list):
+            _l = [qid, rank_level]
+            for sc in scs:
+                if type(sc) == dict:
+                    _l += list(sc.values())
+                else:
+                    _l.append(sc)
+            _l.append(all_ids[ix])
+            ret.append(_l)
+        return ret
+
+    samples_dict = {el[0]: el[1:] for el in samples}
+    ftrs = []
+    for scores in zip(*scores_list):
+        _fs = []
+        ancors, pos, neg = list(zip(*scores))
+        assert len(set(ancors)) == 1
+
+        anc = ancors[0]
+        samp_ixs = samples_dict[anc]
+        pos_ss = flatten_scores(pos, 1, samp_ixs[0], all_ids[anc])
+        neg_ss = flatten_scores(neg, 2, samp_ixs[1], all_ids[anc])
+        ftrs += pos_ss
+        ftrs += neg_ss
+
+    ftrs_df = pd.DataFrame(ftrs, columns=names)
+    ftrs_df.to_csv('../data/train_val_ftrs.csv')
+
+    return ftrs_df
 
 
+#   ###################################################################
 
 client = MongoClient()
 db = client.fips
@@ -492,6 +501,7 @@ with open('../data/qdr_scores.pkl', 'rb') as f:
     qdr_scores = pickle.load(f)
 with open('../data/tfidf_scores.pkl', 'rb') as f:
     tfidf_scores = pickle.load(f)
+
 i = 0
 pprint([s if type(s) == int else [si['tfidf'] for si in s] for s in qdr_scores[i]])
 
@@ -522,7 +532,6 @@ pprint(pd.Series(sfar_bms).describe())
 
 import matplotlib.pylab as plt
 
-
 pd.Series(sim_bms).plot.hist(xlim=(0,10000), ylim=(0,800000))
 plt.show()
 
@@ -535,13 +544,6 @@ plt.show()
 pd.Series(sfar_bms).plot.hist(xlim=(0,10000), ylim=(0,800000))
 plt.show()
 
-l = [1,2,1,7,2,5,6,1,3]
-unique = set()
-n = 3
-
-list(first_unique(l, 3))
-
-###################### bm25 sanity check #######################################
 
 bm25_sanity_check(model, corpus, samples)
 
@@ -551,49 +553,102 @@ names = ['q', 'rank', 'tfidf_qdr', 'bm25',
     'lm_jm', 'lm_dirichlet', 'lm_ad', 'tfidf_gs', 'd']
 scores_list = (qdr_scores, tfidf_scores)
 
-def flatten_scores(scs_list, rank_level, ixs, qid):
-    scs_list = list(zip(*scs_list))
-    ret = []
-    for ix, scs in zip(ixs, scs_list):
-        _l = [qid, rank_level]
-        for sc in scs:
-            if type(sc) == dict:
-                _l += list(sc.values())
-            else:
-                _l.append(sc)
-        _l.append(all_ids[ix])
-        ret.append(_l)
-    return ret
+ftrs_df = save_ftrs_to_dataframe(scores_list, names, samples)
 
-samples_dict = {el[0]: el[1:] for el in samples}
-ftrs = []
-for scores in zip(*scores_list):
-    _fs = []
-    ancors, pos, neg = list(zip(*scores))
-    assert len(set(ancors)) == 1
-
-    anc = ancors[0]
-    samp_ixs = samples_dict[anc]
-    pos_ss = flatten_scores(pos, 1, samp_ixs[0], all_ids[anc])
-    neg_ss = flatten_scores(neg, 2, samp_ixs[1], all_ids[anc])
-    ftrs += pos_ss
-    ftrs += neg_ss
-
-ftrs_df = pd.DataFrame(ftrs, columns=names)
-ftrs_df.to_csv('../data/train_val_ftrs.csv')
-
-
-
-def ftrs_df(scores_list, names=[]):
-    ftrs = []
-    for scores in zip(*scores_list):
-         ancors, pos, neg = list(zip(*scores))
-         unique = set(ancors)
-         assert len(set(ancors)) == 1
-
-
+ftrs_df = pd.read_csv('../data/train_val_ftrs.csv')
 
 # ############################################################################
+
+data = ftrs_df.drop(columns=['Unnamed: 0', 'q', 'd', 'rank'])
+
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pylab as plt
+import seaborn as sns
+
+train_val = ftrs_df['q'].unique()
+t_ixs, v_ixs = train_test_split(train_val, test_size=0.2, random_state=SEED)
+x_train = data.loc[ftrs_df['q'].isin(t_ixs)]
+y_train = ftrs_df.loc[ftrs_df['q'].isin(t_ixs),'rank']
+x_val = data.loc[ftrs_df['q'].isin(v_ixs)]
+y_val = ftrs_df.loc[ftrs_df['q'].isin(v_ixs),'rank']
+
+x_train, y_train = shuffle(x_train, y_train, random_state=SEED)
+x_val, y_val = shuffle(x_val, y_val, random_state=SEED)
+
+scaler = StandardScaler()
+print(scaler.fit(x_train))
+
+x_train = pd.DataFrame(scaler.transform(x_train), columns=x_train.columns)
+x_val = pd.DataFrame(scaler.transform(x_val), columns=x_val.columns)
+
+plt.scatter(x_val['bm25'], x_val['tfidf_gs'], c=y_val, alpha=0.1)
+plt.show()
+
+from sklearn import linear_model
+
+model = linear_model.LogisticRegression(C=1)
+model.fit(x_train, y_train)
+probs = model.predict_proba(x_val)[:,0]
+
+ones = probs[np.where(y_val == 1)]
+twoes = probs[np.where(y_val == 2)]
+evaluate(probs, y_val == 1, threshold=0.7)
+
+sns.distplot(ones, label='sim')
+sns.distplot(twoes, label='dissim')
+plt.xlabel('prob')
+plt.ylabel('freq')
+plt.legend(loc="best")
+plt.show(block=False)
+
+
+probs = model.predict_proba(x_train)[:,0]
+ones = probs[np.where(y_train == 1)]
+twoes = probs[np.where(y_train == 2)]
+evaluate(probs, y_train == 1, threshold=0.3)
+
+
+import xgboost as xgb
+
+model = xgb.XGBClassifier(
+    n_estimators=300, 
+    learning_rate=0.05)#(max_depth=5)
+model.fit(x_train, y_train)
+
+probs = model.predict_proba(x_train)[:,0]
+ones = probs[np.where(y_train == 1)]
+twoes = probs[np.where(y_train == 2)]
+evaluate(probs, y_train == 1, threshold=0.45)
+
+probs = model.predict_proba(x_val)[:,0]
+ones = probs[np.where(y_val == 1)]
+twoes = probs[np.where(y_val == 2)]
+evaluate(probs, y_val == 1, threshold=0.45)
+
+
+print(shuffle([1,2,3,4], random_state=1))
+
+
+
+roc_auc_score(y_train==1, probs)
+
+y_pred = [1 if p >= 0.8 else 2 for p in probs]
+accuracy_score(y_train, y_pred)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
