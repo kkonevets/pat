@@ -748,8 +748,8 @@ class Sentences(object):
 dim = 200
 model = Word2Vec(Sentences('../data/documents/'), size=dim, 
                  sg=1, min_count=5, window=9, workers=cpu_count)
-model.save('../data/lingvo/w2v_200_sg_5_w10_trigram')
-model = Word2Vec.load('../data/lingvo/w2v_200_sg_5_w10_trigram_2')
+model.save('../data/lingvo/w2v_200_sg_5_w9')
+model = Word2Vec.load('../data/lingvo/w2v_200_sg_5_w9')
 
 
 for w ,s in model.most_similar('стол', topn=10):
