@@ -705,7 +705,7 @@ jaccard = pd.read_csv('../data/jaccard.csv')
 
 assert len(ftrs_df) == len(jaccard)
 
-#   #################################unite features #############################
+#   ################################# unite features #############################
 
 joined = ftrs_df.merge(ftrs_independent, on='q')
 cp = ftrs_independent.copy()
@@ -747,14 +747,47 @@ class Sentences(object):
 
 dim = 200
 model = Word2Vec(Sentences('../data/documents/'), size=dim, 
-                 sg=1, min_count=5, window=9, workers=cpu_count)
-model.save('../data/lingvo/w2v_200_sg_5_w9')
+    min_count=5, window=9, workers=cpu_count)
+model.save('../data/lingvo/w2v_200_5_w9')
 model = Word2Vec.load('../data/lingvo/w2v_200_sg_5_w9')
 
 
 for w ,s in model.most_similar('стол', topn=10):
     print('%s %s' % (w,s))
 
+
+def push_docs_t0_ram(dictionary):
+    unique = set(ftrs_df['q']).union(ftrs_df['d'])
+    docs_ram = {}
+    for _id, doc in iter_docs(list_block, encode=False, with_ids=True, as_is=True):
+        if _id not in unique:
+            continue
+        _doc = {}
+        for k,v in doc.items():
+            _ids = [dictionary.token2id[w] for s in v for w in s]
+            _doc[k] = _ids
+        docs_ram[_id] = _doc 
+    return docs_ram
+
+
+jaccard = []
+for el in tqdm(samples):
+    key = all_ids[el[0]]
+    q = docs_ram[key]
+    q_sets = {}
+    for k,v in q.items():
+        q_sets[k] = set(v)
+    for _ix in el[1] + el[2]:
+        _id = all_ids[_ix]
+        jac = {'q':key, 'd':_id}
+        d = docs_ram[_id]
+        for k,v in d.items():
+            if k in q_sets:
+                lu = len(q_sets[k].union(v))
+                if lu:
+                    j = len(q_sets[k].intersection(v))/lu
+                    jac['%s_j'%k] = j
+        jaccard.append(jac)
 
 
 
