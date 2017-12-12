@@ -400,6 +400,26 @@ def save_ftrs_to_dataframe(scores_list, names, samples):
     ftrs_df = pd.DataFrame(ftrs, columns=names)
     ftrs_df.to_csv('../data/qdr_gens_ftrs.csv', index=False)
 
+
+def push_docs_to_ram(token2id, is_gensim=False):
+    unique = set(ftrs_df['q']).union(ftrs_df['d'])
+    docs_ram = {}
+    list_block = glob('../data/documents/*')
+    list_block.sort(key=natural_keys)
+
+    for _id, doc in iter_docs(list_block, encode=False, with_ids=True, as_is=True):
+        if _id not in unique:
+            continue
+        _doc = {}
+        for k,v in doc.items():
+            if is_gensim:
+                _ids = [token2id[w].index for s in v for w in s if w in token2id]
+            else:
+                _ids = [token2id[w] for s in v for w in s]
+            _doc[k] = _ids
+        docs_ram[_id] = _doc 
+    return docs_ram
+
 #   ###################################################################
 
 client = MongoClient()
@@ -666,17 +686,7 @@ ftrs.to_csv('../data/independ_ftrs.csv')
 ftrs_independent = pd.read_csv('../data/independ_ftrs.csv')
 
 
-unique = set(ftrs_df['q']).union(ftrs_df['d'])
-docs_ram = {}
-for _id, doc in iter_docs(list_block, encode=False, with_ids=True, as_is=True):
-    if _id not in unique:
-        continue
-    _doc = {}
-    for k,v in doc.items():
-        _ids = [dictionary.token2id[w] for s in v for w in s]
-        _doc[k] = _ids
-    docs_ram[_id] = _doc 
-
+docs_ram = push_docs_to_ram(dictionary.token2id)
 
 jaccard = []
 for el in tqdm(samples):
@@ -747,34 +757,26 @@ class Sentences(object):
 
 dim = 200
 model = Word2Vec(Sentences('../data/documents/'), size=dim, 
-    min_count=5, window=9, workers=cpu_count)
-model.save('../data/lingvo/w2v_200_5_w9')
-model = Word2Vec.load('../data/lingvo/w2v_200_sg_5_w9')
+    min_count=5, window=8, workers=cpu_count)
+model.save('../data/w2v_200_5_w8')
+
+model = Word2Vec.load('../data/w2v_200_5_w8')
 
 
 for w ,s in model.most_similar('стол', topn=10):
     print('%s %s' % (w,s))
 
 
-def push_docs_t0_ram(dictionary):
-    unique = set(ftrs_df['q']).union(ftrs_df['d'])
-    docs_ram = {}
-    for _id, doc in iter_docs(list_block, encode=False, with_ids=True, as_is=True):
-        if _id not in unique:
-            continue
-        _doc = {}
-        for k,v in doc.items():
-            _ids = [dictionary.token2id[w] for s in v for w in s]
-            _doc[k] = _ids
-        docs_ram[_id] = _doc 
-    return docs_ram
+wv = model.wv
+docs_ram = push_docs_to_ram(wv.vocab, is_gensim=True)
 
-
-jaccard = []
+cosines = []
 for el in tqdm(samples):
     key = all_ids[el[0]]
     q = docs_ram[key]
-    q_sets = {}
+    if len(q) == 0:
+        continue
+    q_vec = {}
     for k,v in q.items():
         q_sets[k] = set(v)
     for _ix in el[1] + el[2]:
@@ -788,9 +790,6 @@ for el in tqdm(samples):
                     j = len(q_sets[k].intersection(v))/lu
                     jac['%s_j'%k] = j
         jaccard.append(jac)
-
-
-
 
 
 
