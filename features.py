@@ -215,8 +215,8 @@ def sample_negs(iix, key, k=1):
     exclude = posvs + [key_ix]
     size = len(posvs) * k
 
-    # slice starting from 1 - could be duplicate
-    filtered = filterfalse(lambda x: x in exclude, map(int, iix[1:]))
+    # slice starting from 3 - could be duplicates
+    filtered = filterfalse(lambda x: x in exclude, map(int, iix[3:]))
     close_negs = list(islice(filtered, size))
 
     i = random.randint(0, len(neg_ixs) - size)
@@ -398,10 +398,7 @@ def save_ftrs_to_dataframe(scores_list, names, samples):
         ftrs += neg_ss
 
     ftrs_df = pd.DataFrame(ftrs, columns=names)
-    ftrs_df.to_csv('../data/train_val_ftrs.csv')
-
-    return ftrs_df
-
+    ftrs_df.to_csv('../data/qdr_gens_ftrs.csv', index=False)
 
 #   ###################################################################
 
@@ -475,7 +472,7 @@ random.shuffle(neg_ixs)
 # ############################# smart neg sample ############################
 
 samples = gen_train_samples(keys_tv)
-with open('../data/sampled2.json', 'r') as f:
+with open('../data/sampled.json', 'r') as f:
     samples = json.load(f)
 
 # i = 33
@@ -495,6 +492,7 @@ model.serialize_to_file(fname)
 model = QueryDocumentRelevance.load_from_file(fname)
 corpus = corpora.MmCorpus('../data/corpus.mm')
 
+save_tfidf_features(corpus, samples)
 save_qdr_features(model, corpus, samples)
 
 with open('../data/qdr_scores.pkl', 'rb') as f:
@@ -510,7 +508,7 @@ pprint(tfidf_scores[i])
 
 sim_bms, close_bms, far_bms, sfar_bms = [], [], [], []
 wrong = 0
-for el in scores:
+for el in qdr_scores:
     _l = len(el[1])
     if len(el[2]) != 2*_l+1:
         wrong += 1
@@ -553,9 +551,8 @@ names = ['q', 'rank', 'tfidf_qdr', 'bm25',
     'lm_jm', 'lm_dirichlet', 'lm_ad', 'tfidf_gs', 'd']
 scores_list = (qdr_scores, tfidf_scores)
 
-ftrs_df = save_ftrs_to_dataframe(scores_list, names, samples)
-
-ftrs_df = pd.read_csv('../data/train_val_ftrs.csv')
+save_ftrs_to_dataframe(scores_list, names, samples)
+ftrs_df = pd.read_csv('../data/qdr_gens_ftrs.csv')
 
 # ############################################################################
 
@@ -608,11 +605,14 @@ twoes = probs[np.where(y_train == 2)]
 evaluate(probs, y_train == 1, threshold=0.3)
 
 
+# WHY NOT OVERFIT ON TRAIN DATA WITH XGBOOST???
+
 import xgboost as xgb
 
 model = xgb.XGBClassifier(
-    n_estimators=300, 
-    learning_rate=0.05)#(max_depth=5)
+    max_depth=5,
+    n_estimators=2000, 
+    learning_rate=0.3)
 model.fit(x_train, y_train)
 
 probs = model.predict_proba(x_train)[:,0]
@@ -623,30 +623,137 @@ evaluate(probs, y_train == 1, threshold=0.45)
 probs = model.predict_proba(x_val)[:,0]
 ones = probs[np.where(y_val == 1)]
 twoes = probs[np.where(y_val == 2)]
-evaluate(probs, y_val == 1, threshold=0.45)
+evaluate(probs, y_val == 1, threshold=0.34)
 
 
 print(shuffle([1,2,3,4], random_state=1))
 
-
-
 roc_auc_score(y_train==1, probs)
 
-y_pred = [1 if p >= 0.8 else 2 for p in probs]
+y_pred = [1 if p >= 0.35 else 2 for p in probs]
 accuracy_score(y_train, y_pred)
 
+from sklearn.metrics import precision_recall_fscore_support
+precision_recall_fscore_support(y_val, y_pred, average='macro')
+
+#   #########################################################################
+
+list_block = glob('../data/documents/*')
+list_block.sort(key=natural_keys)
+# all_ids = load_keys('../data/keys.json')
+
+unique = set(ftrs_df['q']).union(ftrs_df['d'])
+ftrs = []
+for _id, doc in iter_docs(list_block, encode=False, with_ids=True, as_is=True):
+    if _id not in unique:
+        continue
+    _ft = {'q':_id}
+    _l = 0
+    for k,v in doc.items():
+        words = [w for s in v for w in s]
+        _ft[k] = len(words)
+        _ft['unique_%s' % k] = len(set(words))
+        _l += _ft[k]
+    _ft['total_len'] = _l
+    ftrs.append(_ft)
+
+ftrs = pd.DataFrame.from_dict(ftrs, orient='columns')
+ftrs.fillna(0, inplace=True)
+ftrs.set_index('q', inplace=True)
+ftrs = ftrs.astype(int)
+ftrs.to_csv('../data/independ_ftrs.csv')
+
+ftrs_independent = pd.read_csv('../data/independ_ftrs.csv')
 
 
+unique = set(ftrs_df['q']).union(ftrs_df['d'])
+docs_ram = {}
+for _id, doc in iter_docs(list_block, encode=False, with_ids=True, as_is=True):
+    if _id not in unique:
+        continue
+    _doc = {}
+    for k,v in doc.items():
+        _ids = [dictionary.token2id[w] for s in v for w in s]
+        _doc[k] = _ids
+    docs_ram[_id] = _doc 
 
 
+jaccard = []
+for el in tqdm(samples):
+    key = all_ids[el[0]]
+    q = docs_ram[key]
+    q_sets = {}
+    for k,v in q.items():
+        q_sets[k] = set(v)
+    for _ix in el[1] + el[2]:
+        _id = all_ids[_ix]
+        jac = {'q':key, 'd':_id}
+        d = docs_ram[_id]
+        for k,v in d.items():
+            if k in q_sets:
+                lu = len(q_sets[k].union(v))
+                if lu:
+                    j = len(q_sets[k].intersection(v))/lu
+                    jac['%s_j'%k] = j
+        jaccard.append(jac)
+
+jaccard = pd.DataFrame.from_dict(jaccard)
+jaccard.fillna(0, inplace=True)
+jaccard.to_csv('../data/jaccard.csv', index=False)
+
+jaccard = pd.read_csv('../data/jaccard.csv')
+
+assert len(ftrs_df) == len(jaccard)
+
+#   #################################unite features #############################
+
+joined = ftrs_df.merge(ftrs_independent, on='q')
+cp = ftrs_independent.copy()
+cp['d'] = cp['q']
+del cp['q']
+joined = joined.merge(cp, on='d', suffixes=('_q', '_d'))
+
+assert len(ftrs_df) == len(joined)
+
+joined = joined.merge(jaccard, on=['q', 'd'])
+joined.drop_duplicates(['q', 'd'], inplace=True)
+pprint('%s %s' % (len(ftrs_df), len(joined)))
+pprint(joined.isnull().sum())
+
+for _ix, g in tqdm(joined.groupby(['q'])):
+    assert len(g['rank'].unique()) > 1
+    break
+
+joined.sort_values(['q', 'rank'], inplace=True)
+joined.set_index(['q', 'd'], inplace=True)
+
+joined.to_csv('../data/ftrs.csv')
+joined[:10000].to_csv('../data/ftrs_show.csv')
+
+#   ######################## word2vec ####################################
+
+from gensim.models import Word2Vec
+
+class Sentences(object):
+    def __init__(self, folder):
+        self.folder = folder
+ 
+    def __iter__(self):
+        fnames = glob(join(self.folder, '*.json.gz'))
+        for doc in iter_docs(fnames, as_is=True):
+            for t in doc.values():
+                for s in t:
+                    yield s
+
+dim = 200
+model = Word2Vec(Sentences('../data/documents/'), size=dim, 
+                 sg=1, min_count=5, window=9, workers=cpu_count)
+model.save('../data/lingvo/w2v_200_sg_5_w10_trigram')
+model = Word2Vec.load('../data/lingvo/w2v_200_sg_5_w10_trigram_2')
 
 
-
-
-
-
-
-
+for w ,s in model.most_similar('стол', topn=10):
+    print('%s %s' % (w,s))
 
 
 
