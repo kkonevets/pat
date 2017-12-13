@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score, f1_score, \
 from sklearn.model_selection import GridSearchCV
 from sklearn.utils import shuffle
 from collections import Counter
+from scipy.spatial import distance
 
 
 SEED = 0
@@ -768,28 +769,38 @@ for w ,s in model.most_similar('стол', topn=10):
 
 
 wv = model.wv
+index2word = wv.index2word
 docs_ram = push_docs_to_ram(wv.vocab, is_gensim=True)
+
+with open('../data/docs_ram.pkl', 'wb') as f:
+    pickle.dump(docs_ram, f)
+
+
+def mean_vector(vectors):
+    if len(vectors.shape) > 1:
+        return bunch.mean(axis=0)
+    else:
+        return vectors
+
 
 cosines = []
 for el in tqdm(samples):
     key = all_ids[el[0]]
     q = docs_ram[key]
-    if len(q) == 0:
-        continue
-    q_vec = {}
+    q_vecs = {}
     for k,v in q.items():
-        q_sets[k] = set(v)
+        if len(v):
+            q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
     for _ix in el[1] + el[2]:
         _id = all_ids[_ix]
-        jac = {'q':key, 'd':_id}
+        _cos = {'q':key, 'd':_id}
         d = docs_ram[_id]
         for k,v in d.items():
-            if k in q_sets:
-                lu = len(q_sets[k].union(v))
-                if lu:
-                    j = len(q_sets[k].intersection(v))/lu
-                    jac['%s_j'%k] = j
-        jaccard.append(jac)
+            if len(v):
+                vec = mean_vector(wv[itemgetter(*v)(index2word)])
+                if k in q_vecs and len(vec) and len(q_vecs[k]):
+                    _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
+        cosines.append(_cos)
 
 
 
