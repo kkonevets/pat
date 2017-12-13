@@ -16,6 +16,10 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.utils import shuffle
 from collections import Counter
 from scipy.spatial import distance
+import copy
+import collections
+from itertools import combinations
+
 
 SEED = 0
 
@@ -464,6 +468,61 @@ class Sentences(object):
                     yield s
 
 
+def fix(name):
+    fixes = {u'\u041d':u'H', u'\u0410':u'A', u'\u0412':u'B'}
+    if name in fixes:
+        return fixes[name]
+    else:
+        return name
+
+
+def clean_mpk(mpk):
+    mpk = copy.deepcopy(mpk)
+    for k,v in mpk.items():
+        mpk[k] = fix(v.strip())
+        if k in (u'main_group', u'class_',  u'subgroup'):
+            mpk[k] = int(mpk[k])
+    return mpk
+
+
+def rename(doc):
+    mpk_list = []
+    for mpk in doc['mpk']:
+        if u'class' in mpk:
+            mpk[u'class_'] = mpk.pop(u'class')
+        if u'main-group' in mpk:
+            mpk[u'main_group'] = mpk.pop(u'main-group')
+        mpk_list.append(mpk)
+    doc['mpk'] = mpk_list
+    return doc
+
+
+def extract_mpk_ftrs(doc, combs):
+    ret = set()
+    if 'mpk' not in doc:
+        return ret
+
+    for struct in doc['mpk']:
+        struct_set = set(struct.keys())
+        for i, com in enumerate(combs):
+            if set(com).issubset(struct_set):
+                NT = collections.namedtuple('comb%s' % i, com)
+                dic = {c: struct[c] for c in com}
+                ret.update([NT(**dic)])
+            else:
+                break
+    return ret
+
+
+def compare_mpk(doc1, doc2, combs):
+    ftrs1 = extract_mpk_ftrs(doc1, combs)
+    ftrs2 = extract_mpk_ftrs(doc2, combs)
+    common = ftrs1.intersection(ftrs2)
+    if len(common) == 0:
+        return 0
+    return max([len(c) for c in common])
+
+
 #   ###################################################################
 
 client = MongoClient()
@@ -793,6 +852,54 @@ cosines.sort_values(['q', 'd'], inplace=True)
 cosines.set_index(['q', 'd'], inplace=True)
 cosines.to_csv('../data/cosines.csv')
 cosines = pd.read_csv('../data/cosines.csv')
+
+#   ############################### MPK #######################################
+
+client = MongoClient()
+db = client.fips
+all_ids = load_keys('../data/keys.json')
+with open('../data/sampled.json', 'r') as f:
+    samples = json.load(f)
+
+way = ['section', 'class_', 'subclass', 'main_group', 'subgroup']
+combs = [way[:i+1] for i in range(len(way))]
+
+def fetch_mkp(_id):
+    doc = db.patents.find_one({'_id': ObjectId(_id)}, {'mpk': 1, '_id':0})
+    if 'mpk' in doc:
+        doc = rename(doc)
+        doc['mpk'] = [clean_mpk(mpk) for mpk in doc['mpk']]
+    else:
+        doc['mpk'] = []
+    return doc
+
+
+all_mpk = {}
+for q_ix, pos, neg in tqdm(samples):
+    for _ix in [q_ix] + pos + neg:
+        _id = all_ids[_ix]
+        if _id not in all_mpk:
+            all_mpk[_id] = fetch_mkp(_id)
+
+
+with open('../data/all_mpk.pkl', 'wb') as f:
+    pickle.dump(all_mpk, f)
+with open('../data/all_mpk.pkl', 'rb') as f:
+    all_mpk = pickle.load(f)
+
+
+mpk_ftrs = []
+for q_ix, pos, neg in tqdm(samples):
+    q_id = all_ids[q_ix]
+    q = all_mpk[q_id]
+    for _ix in pos + neg:
+        _id = all_ids[_ix]
+        _ft = {'q':q_id, 'd': _id}
+        d = all_mpk[_id]
+        n = compare_mpk(q, d, combs)
+        _ft['mpk'] = n
+        mpk_ftrs.append(_ft)
+
 
 #   ################################# unite features #############################
 
