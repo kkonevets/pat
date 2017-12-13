@@ -803,7 +803,7 @@ def cosines_worker(samples_part):
                         _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
             cosines.append(_cos)
         if count % 1000 == 0:
-            print('%s%%'%100.*count/len(samples_part))
+            print('%s%%' % (100.*count/len(samples_part)))
     return cosines
 
 
