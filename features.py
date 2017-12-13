@@ -777,31 +777,38 @@ with open('../data/docs_ram.pkl', 'wb') as f:
 
 
 def mean_vector(vectors):
-    if len(vectors.shape) > 1:
-        return bunch.mean(axis=0)
+    if vectors.ndim > 1:
+        return vectors.mean(axis=0)
     else:
         return vectors
 
 
-cosines = []
-for el in tqdm(samples):
-    key = all_ids[el[0]]
-    q = docs_ram[key]
-    q_vecs = {}
-    for k,v in q.items():
-        if len(v):
-            q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
-    for _ix in el[1] + el[2]:
-        _id = all_ids[_ix]
-        _cos = {'q':key, 'd':_id}
-        d = docs_ram[_id]
-        for k,v in d.items():
+def cosines_worker(samples_part):
+    cosines = []
+    for el in tqdm(samples_part):
+        key = all_ids[el[0]]
+        q = docs_ram[key]
+        q_vecs = {}
+        for k,v in q.items():
             if len(v):
-                vec = mean_vector(wv[itemgetter(*v)(index2word)])
-                if k in q_vecs and len(vec) and len(q_vecs[k]):
-                    _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
-        cosines.append(_cos)
+                q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
+        for _ix in el[1] + el[2]:
+            _id = all_ids[_ix]
+            _cos = {'q':key, 'd':_id}
+            d = docs_ram[_id]
+            for k,v in d.items():
+                if len(v):
+                    vec = mean_vector(wv[itemgetter(*v)(index2word)])
+                    if k in q_vecs and len(vec) and len(q_vecs[k]):
+                        _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
+            cosines.append(_cos)
+    return cosines
 
+
+res = Parallel(n_jobs=cpu_count, backend="threading") \
+    (delayed(cosines_worker)(part) for
+     part in chunkIt(samples, cpu_count))
+samples += list(chain.from_iterable(res))
 
 
 
