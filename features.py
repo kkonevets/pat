@@ -785,7 +785,7 @@ def mean_vector(vectors):
 
 def cosines_worker(samples_part):
     cosines = []
-    for el in tqdm(samples_part):
+    for count, el in enumerate(samples_part):
         key = all_ids[el[0]]
         q = docs_ram[key]
         q_vecs = {}
@@ -802,13 +802,15 @@ def cosines_worker(samples_part):
                     if k in q_vecs and len(vec) and len(q_vecs[k]):
                         _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
             cosines.append(_cos)
+        if count % 1000 == 0:
+            print(count)
     return cosines
 
 
 res = Parallel(n_jobs=cpu_count, backend="threading") \
     (delayed(cosines_worker)(part) for
      part in chunkIt(samples, cpu_count))
-samples += list(chain.from_iterable(res))
+cosines = list(chain.from_iterable(res))
 
 
 
