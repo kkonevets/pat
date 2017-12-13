@@ -17,7 +17,6 @@ from sklearn.utils import shuffle
 from collections import Counter
 from scipy.spatial import distance
 
-
 SEED = 0
 
 
@@ -421,6 +420,50 @@ def push_docs_to_ram(token2id, is_gensim=False):
         docs_ram[_id] = _doc 
     return docs_ram
 
+
+def mean_vector(vectors):
+    if vectors.ndim > 1:
+        return vectors.mean(axis=0)
+    else:
+        return vectors
+
+
+def cosines_worker(samples_part):
+    cosines = []
+    for count, el in enumerate(samples_part):
+        key = all_ids[el[0]]
+        q = docs_ram[key]
+        q_vecs = {}
+        for k,v in q.items():
+            if len(v):
+                q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
+        for _ix in el[1] + el[2]:
+            _id = all_ids[_ix]
+            _cos = {'q':key, 'd':_id}
+            d = docs_ram[_id]
+            for k,v in d.items():
+                if len(v):
+                    vec = mean_vector(wv[itemgetter(*v)(index2word)])
+                    if k in q_vecs and len(vec) and len(q_vecs[k]):
+                        _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
+            cosines.append(_cos)
+        # if count % 1000 == 0:
+        #     print('%d%%' % (100.*count/len(samples_part)))
+    return cosines
+
+
+class Sentences(object):
+    def __init__(self, folder):
+        self.folder = folder
+ 
+    def __iter__(self):
+        fnames = glob(join(self.folder, '*.json.gz'))
+        for doc in iter_docs(fnames, as_is=True):
+            for t in doc.values():
+                for s in t:
+                    yield s
+
+
 #   ###################################################################
 
 client = MongoClient()
@@ -716,6 +759,41 @@ jaccard = pd.read_csv('../data/jaccard.csv')
 
 assert len(ftrs_df) == len(jaccard)
 
+#   ######################## word2vec ####################################
+
+dim = 200
+model = Word2Vec(Sentences('../data/documents/'), size=dim, 
+    min_count=5, window=8, workers=cpu_count)
+model.save('../data/w2v_200_5_w8')
+
+all_ids = load_keys('../data/keys.json')
+model = Word2Vec.load('../data/w2v_200_5_w8')
+ftrs_df = pd.read_csv('../data/qdr_gens_ftrs.csv')
+with open('../data/sampled.json', 'r') as f:
+    samples = json.load(f)
+
+# for w ,s in model.most_similar('стол', topn=10):
+#     print('%s %s' % (w,s))
+
+wv = model.wv
+index2word = wv.index2word
+docs_ram = push_docs_to_ram(wv.vocab, is_gensim=True)
+
+cosines = []
+for keys_part in tqdm(chunkIt(samples, 50)):
+    res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
+        (delayed(cosines_worker)(part) for
+         part in chunkIt(keys_part, cpu_count))
+    cosines += list(chain.from_iterable(res))
+
+
+cosines = pd.DataFrame.from_dict(cosines, orient='columns')
+cosines.fillna(0, inplace=True)
+cosines.sort_values(['q', 'd'], inplace=True)
+cosines.set_index(['q', 'd'], inplace=True)
+cosines.to_csv('../data/cosines.csv')
+cosines = pd.read_csv('../data/cosines.csv')
+
 #   ################################# unite features #############################
 
 joined = ftrs_df.merge(ftrs_independent, on='q')
@@ -735,94 +813,22 @@ for _ix, g in tqdm(joined.groupby(['q'])):
     assert len(g['rank'].unique()) > 1
     break
 
+joined = joined.merge(cosines, on=['q', 'd'])
+
 joined.sort_values(['q', 'rank'], inplace=True)
 joined.set_index(['q', 'd'], inplace=True)
 
-joined.to_csv('../data/ftrs.csv')
+joined.to_csv('../data/ftrs.csv.gz', compression='gzip')
 joined[:10000].to_csv('../data/ftrs_show.csv')
 
-#   ######################## word2vec ####################################
-
-all_ids = load_keys('../data/keys.json')
-
-class Sentences(object):
-    def __init__(self, folder):
-        self.folder = folder
- 
-    def __iter__(self):
-        fnames = glob(join(self.folder, '*.json.gz'))
-        for doc in iter_docs(fnames, as_is=True):
-            for t in doc.values():
-                for s in t:
-                    yield s
-
-dim = 200
-model = Word2Vec(Sentences('../data/documents/'), size=dim, 
-    min_count=5, window=8, workers=cpu_count)
-model.save('../data/w2v_200_5_w8')
-
-model = Word2Vec.load('../data/w2v_200_5_w8')
-ftrs_df = pd.read_csv('../data/qdr_gens_ftrs.csv')
-with open('../data/sampled.json', 'r') as f:
-    samples = json.load(f)
-
-
-for w ,s in model.most_similar('стол', topn=10):
-    print('%s %s' % (w,s))
-
-
-wv = model.wv
-index2word = wv.index2word
-docs_ram = push_docs_to_ram(wv.vocab, is_gensim=True)
-
-docs_ram = {'sdfvsdf234':[1,2,3]}
-
-with open('../data/docs_ram.json', 'w') as f:
-    ujson.dump(docs_ram, f)
-with open('../data/docs_ram.json', 'r') as f:
-    docs_ram = ujson.load(f)
-
-
-def mean_vector(vectors):
-    if vectors.ndim > 1:
-        return vectors.mean(axis=0)
-    else:
-        return vectors
-
-
-def cosines_worker(samples_part):
-    cosines = []
-    for count, el in enumerate(samples_part):
-        key = all_ids[el[0]]
-        q = docs_ram[key]
-        q_vecs = {}
-        for k,v in q.items():
-            if len(v):
-                q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
-        for _ix in el[1] + el[2]:
-            _id = all_ids[_ix]
-            _cos = {'q':key, 'd':_id}
-            d = docs_ram[_id]
-            for k,v in d.items():
-                if len(v):
-                    vec = mean_vector(wv[itemgetter(*v)(index2word)])
-                    if k in q_vecs and len(vec) and len(q_vecs[k]):
-                        _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
-            cosines.append(_cos)
-        # if count % 1000 == 0:
-        #     print('%d%%' % (100.*count/len(samples_part)))
-    return cosines
-
-
-cosines = []
-for keys_part in tqdm(chunkIt(samples, 100)):
-    res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
-        (delayed(cosines_worker)(part) for
-         part in chunkIt(keys_part, cpu_count))
-    cosines += list(chain.from_iterable(res))
+joined = pd.read_csv('../data/ftrs.csv.gz')
 
 
 
 
-cosines_worker(chs[:10][0])
+
+
+
+
+
 
