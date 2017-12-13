@@ -19,6 +19,7 @@ from scipy.spatial import distance
 import copy
 import collections
 from itertools import combinations
+import cProfile, pstats
 
 
 SEED = 0
@@ -497,30 +498,45 @@ def rename(doc):
     return doc
 
 
-def extract_mpk_ftrs(doc, combs):
-    ret = set()
-    if 'mpk' not in doc:
-        return ret
+def compare_mpk_level(mpk1, mpk2, tag):
+    matched = {}
+    for i, m1 in enumerate(mpk1):
+        v1 = m1.get(tag)
+        if v1 is None:
+            continue
+        for j, m2 in enumerate(mpk2):
+            v2 = m2.get(tag)
+            if v2 is None:
+                continue
+            if v1 == v2:
+                ixs = matched.get(v1)
+                if ixs is None:
+                    ixs = (set(), set())
+                    matched[v1] = ixs
+                ixs[0].update([i])
+                ixs[1].update([j])
+    return matched
 
-    for struct in doc['mpk']:
-        struct_set = set(struct.keys())
-        for i, com in enumerate(combs):
-            if set(com).issubset(struct_set):
-                NT = collections.namedtuple('comb%s' % i, com)
-                dic = {c: struct[c] for c in com}
-                ret.update([NT(**dic)])
-            else:
-                break
-    return ret
+
+def make_tuple(val):
+    if type(val) == tuple:
+        return val 
+    else:
+        return (val,)
 
 
-def compare_mpk(doc1, doc2, combs):
-    ftrs1 = extract_mpk_ftrs(doc1, combs)
-    ftrs2 = extract_mpk_ftrs(doc2, combs)
-    common = ftrs1.intersection(ftrs2)
-    if len(common) == 0:
+def compare_mpk(mpk1, mpk2, way):
+    if len(way):
+        matched = compare_mpk_level(mpk1, mpk2, way[0])
+    else: 
         return 0
-    return max([len(c) for c in common])
+    count = int(bool(len(matched)))
+    sub_count = 0
+    for ixs1, ixs2 in matched.values():
+        _mpk1 = make_tuple(itemgetter(*ixs1)(mpk1))
+        _mpk2 = make_tuple(itemgetter(*ixs2)(mpk2))
+        sub_count = max(sub_count, compare_mpk(_mpk1, _mpk2, way[1:]))
+    return count + sub_count
 
 
 #   ###################################################################
@@ -887,7 +903,6 @@ with open('../data/all_mpk.pkl', 'wb') as f:
 with open('../data/all_mpk.pkl', 'rb') as f:
     all_mpk = pickle.load(f)
 
-
 mpk_ftrs = []
 for q_ix, pos, neg in tqdm(samples):
     q_id = all_ids[q_ix]
@@ -896,7 +911,7 @@ for q_ix, pos, neg in tqdm(samples):
         _id = all_ids[_ix]
         _ft = {'q':q_id, 'd': _id}
         d = all_mpk[_id]
-        n = compare_mpk(q, d, combs)
+        n = compare_mpk(q['mpk'], d['mpk'], way)
         _ft['mpk'] = n
         mpk_ftrs.append(_ft)
 
