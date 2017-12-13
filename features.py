@@ -915,6 +915,12 @@ for q_ix, pos, neg in tqdm(samples):
         _ft['mpk'] = n
         mpk_ftrs.append(_ft)
 
+mpk_ftrs = pd.DataFrame.from_dict(mpk_ftrs, orient='columns')
+mpk_ftrs.fillna(0, inplace=True)
+mpk_ftrs.sort_values(['q', 'd'], inplace=True)
+mpk_ftrs.set_index(['q', 'd'], inplace=True)
+mpk_ftrs.to_csv('../data/mpk_ftrs.csv')
+mpk_ftrs = pd.read_csv('../data/mpk_ftrs.csv')
 
 #   ################################# unite features #############################
 
@@ -936,6 +942,8 @@ for _ix, g in tqdm(joined.groupby(['q'])):
     break
 
 joined = joined.merge(cosines, on=['q', 'd'])
+
+joined = joined.merge(mpk_ftrs, on=['q', 'd'])
 
 joined.sort_values(['q', 'rank'], inplace=True)
 joined.set_index(['q', 'd'], inplace=True)
