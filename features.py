@@ -743,7 +743,7 @@ joined[:10000].to_csv('../data/ftrs_show.csv')
 
 #   ######################## word2vec ####################################
 
-from gensim.models import Word2Vec
+all_ids = load_keys('../data/keys.json')
 
 class Sentences(object):
     def __init__(self, folder):
@@ -762,6 +762,9 @@ model = Word2Vec(Sentences('../data/documents/'), size=dim,
 model.save('../data/w2v_200_5_w8')
 
 model = Word2Vec.load('../data/w2v_200_5_w8')
+ftrs_df = pd.read_csv('../data/qdr_gens_ftrs.csv')
+with open('../data/sampled.json', 'r') as f:
+    samples = json.load(f)
 
 
 for w ,s in model.most_similar('стол', topn=10):
@@ -772,8 +775,10 @@ wv = model.wv
 index2word = wv.index2word
 docs_ram = push_docs_to_ram(wv.vocab, is_gensim=True)
 
-with open('../data/docs_ram.pkl', 'wb') as f:
-    pickle.dump(docs_ram, f)
+with open('../data/docs_ram.json', 'w') as f:
+    ujson.dump(docs_ram, f)
+with open('../data/docs_ram.json', 'rb') as f:
+    docs_ram = ujson.load(f)
 
 
 def mean_vector(vectors):
@@ -802,16 +807,17 @@ def cosines_worker(samples_part):
                     if k in q_vecs and len(vec) and len(q_vecs[k]):
                         _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
             cosines.append(_cos)
-        if count % 1000 == 0:
-            print('%s%%' % (100.*count/len(samples_part)))
+        # if count % 1000 == 0:
+        #     print('%d%%' % (100.*count/len(samples_part)))
     return cosines
 
 
-# "threading"
-res = Parallel(n_jobs=cpu_count, backend='multiprocessing') \
-    (delayed(cosines_worker)(part) for
-     part in chunkIt(samples, cpu_count))
-cosines = list(chain.from_iterable(res))
+cosines = []
+for keys_part in tqdm(chunkIt(samples, 100)):
+    res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
+        (delayed(cosines_worker)(part) for
+         part in chunkIt(keys_part, cpu_count))
+    cosines += list(chain.from_iterable(res))
 
 
 
