@@ -775,9 +775,11 @@ wv = model.wv
 index2word = wv.index2word
 docs_ram = push_docs_to_ram(wv.vocab, is_gensim=True)
 
-fname = '../data/docs_ram.json.gz'
-save_texts(docs_ram, fname)
-with GzipFile(fname, 'rb') as f:
+docs_ram = {'sdfvsdf234':[1,2,3]}
+
+with open('../data/docs_ram.json', 'w') as f:
+    ujson.dump(docs_ram, f)
+with open('../data/docs_ram.json', 'r') as f:
     docs_ram = ujson.load(f)
 
 
