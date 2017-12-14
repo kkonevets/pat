@@ -549,7 +549,7 @@ def save_letor(ftrs, fname):
                 qid += 1
                 q_prev = q
             strings = [row['rank'], ]
-            s = '%d qid:%d' % (row['rank'], qid)
+            s = '%d qid:%d' % (2-row['rank'], qid)
             _sft = ' '.join(['%d:%s' % (i+1,v) for i,v in enumerate(row[3:].values)])
             s = ' '.join([s, _sft, '\n'])
             f.write(s)
@@ -979,7 +979,7 @@ train = joined[joined['q'].isin(keys_train)]
 val = joined[joined['q'].isin(keys_val)]
 
 save_letor(train, '../data/train.txt')
-save_letor(val, '../data/val.txt')
+save_letor(val, '../data/vali.txt')
 
 
 
