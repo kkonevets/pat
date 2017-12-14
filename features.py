@@ -971,7 +971,15 @@ joined = pd.read_csv('../data/ftrs.csv.gz')
 
 #   ######################### LETOR format #############################
 
-save_letor(joined, '../data/letor_ftrs.txt')
+sims = load_sims('../data/sims.json')
+keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
+keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
+
+train = joined[joined['q'].isin(keys_train)]
+val = joined[joined['q'].isin(keys_val)]
+
+save_letor(train, '../data/train.txt')
+save_letor(val, '../data/val.txt')
 
 
 
