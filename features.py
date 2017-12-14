@@ -539,6 +539,22 @@ def compare_mpk(mpk1, mpk2, way):
     return count + sub_count
 
 
+def save_letor(ftrs, fname):
+    qid = 0
+    q_prev = None
+    with open(fname, 'w') as f:
+        for _, row in tqdm(ftrs.iterrows(), total=len(ftrs)):
+            q = row['q']
+            if q != q_prev:
+                qid += 1
+                q_prev = q
+            strings = [row['rank'], ]
+            s = '%d qid:%d' % (row['rank'], qid)
+            _sft = ' '.join(['%d:%s' % (i+1,v) for i,v in enumerate(row[3:].values)])
+            s = ' '.join([s, _sft, '\n'])
+            f.write(s)
+
+
 #   ###################################################################
 
 client = MongoClient()
@@ -952,6 +968,23 @@ joined.to_csv('../data/ftrs.csv.gz', compression='gzip')
 joined[:10000].to_csv('../data/ftrs_show.csv')
 
 joined = pd.read_csv('../data/ftrs.csv.gz')
+
+#   ######################### LETOR format #############################
+
+save_letor(joined, '../data/letor_ftrs.txt')
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
