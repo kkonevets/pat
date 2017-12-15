@@ -59,7 +59,7 @@ neg_ixs_distr = df['rank'].values
 tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index)
 ns = ft.NegativeSampler(sims, tfidf_blob, neg_ixs_distr,
                  k=1, percentile=90, seed=SEED)
-samples = ns.gen_samples('../data/sampled.json', n_chunks=2000)
+samples = ns.gen_samples('../data/sampled.json', n_chunks=500)
 
 #   ############################# gensim tfidf ##############################
 
