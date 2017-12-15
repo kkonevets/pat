@@ -2,17 +2,16 @@
 
 from __future__ import division
 
-import tensorflow as tf
+# import tensorflow as tf
 import gensim
-from gensim import corpora, models, similarities
-from gensim.corpora.dictionary import Dictionary
-from gensim.models import Word2Vec, Doc2Vec
+from gensim.corpora import Dictionary, MmCorpus
+from gensim.similarities import Similarity
+from gensim.models import Word2Vec, Doc2Vec, TfidfModel
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 import string
 from itertools import islice
-from operator import itemgetter
 import re, json
 from tqdm import tqdm, tqdm_notebook
 from os.path import join, exists, dirname, realpath, basename
@@ -28,7 +27,6 @@ import pandas as pd
 import logging
 from sklearn.metrics.pairwise import cosine_similarity
 from joblib import Parallel, delayed
-from joblib.pool import has_shareable_memory
 import multiprocessing
 
 cpu_count = multiprocessing.cpu_count()
@@ -164,3 +162,21 @@ def send_email(notebook_url,
     server.login('guyos@bk.ru', password)
     server.sendmail(sender, receivers, msg)
     server.quit()
+
+
+def first_unique(iterable, n):
+    """
+    iterable = [1,2,1,7,2,5,6,1,3], n = 4 -> [1, 2, 7, 5]
+    """
+    unique = set()
+    def condition(x):
+        nonlocal unique, n
+        unique.update([x])
+        return len(unique) <= n
+    filtered = filterfalse(lambda x: x in unique, iterable)
+    return takewhile(condition, filtered)
+
+
+def chunkify(lst, n):
+    return [lst[i::n] for i in range(n)]
+
