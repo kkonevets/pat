@@ -55,7 +55,7 @@ class TfIdfBlob:
     def predict(self, ixs, limit=None):
         cosines = self.get_cosines(ixs)
         # reversed sort
-        argsorted = np.argsort(-cosines)[, :limit]
+        argsorted = np.argsort(-cosines)[:, :limit]
         return argsorted
 
     def extract(self, samples, all_ids, fname):
@@ -87,6 +87,16 @@ class TfIdfBlob:
         return ftrs
 
 
+def neg_sampler_worker(ns, ixs):
+    argsorted = ns.tfidf_blob.predict(ixs)
+    # first element is a query itself
+    args = ((iix[1:], ix) for iix, ix in
+            zip(argsorted, ixs))
+    samps = list(starmap(ns.sample_negs, args))
+    # found = list(chain.from_iterable((starmap(found_at, args2))))
+    return samps
+
+
 class NegativeSampler:
     def __init__(self, sims, tfidf_blob, neg_ixs_distr,
                  k=1, percentile=90, seed=0):
@@ -96,9 +106,10 @@ class NegativeSampler:
         self.k = k
         self.percentile = percentile
 
-        q = range(80, 100, 5)
-        self.percentiles = np.percentile(neg_ixs_distr, q)
-        self.worst_pos = int(self.percentiles[percentile][0])
+        q = range(90, 100, 1)
+        self.percentiles = pd.Series(np.percentile(neg_ixs_distr, q),
+                                        index=q)
+        self.worst_pos = int(self.percentiles[percentile])
 
         random.seed(seed)
         random.shuffle(self.neg_ixs_distr)
@@ -110,19 +121,10 @@ class NegativeSampler:
         #     pass
         samples = []
 
-        def worker(ixs):
-            argsorted = self.tfidf_blob.predict(ixs)
-            # first element is a query itself
-            args = ((iix[1:], ix) for iix, ix in
-                    zip(argsorted, ixs))
-            samps = list(starmap(self.sample_negs, args))
-            # found = list(chain.from_iterable((starmap(found_at, args2))))
-            return samps
-
         keys = list(self.sims.keys())
         for ixs_part in tqdm(np.array_split(keys, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="threading") \
-                (delayed(worker)(part) for
+                (delayed(neg_sampler_worker)(self, part) for
                  part in np.array_split(ixs_part, cpu_count))
             samples += list(chain.from_iterable(res))
 
