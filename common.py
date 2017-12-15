@@ -11,7 +11,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 import string
-from itertools import islice, filterfalse, starmap, chain
+from itertools import islice, filterfalse, starmap, chain, takewhile
 import re, json
 from tqdm import tqdm, tqdm_notebook
 from os.path import join, exists, dirname, realpath, basename
