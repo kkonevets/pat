@@ -102,7 +102,7 @@ class Corpus(gensim.corpora.TextCorpus):
 class Sentences(object):
     def __init__(self, folder):
         self.folder = folder
- 
+
     def __iter__(self):
         fnames = glob(join(self.folder, '*.json.gz'))
         for doc in iter_docs(fnames, as_is=True):
@@ -176,16 +176,14 @@ class MPKFetcher:
         doc['mpk'] = mpk_list
         return doc
 
-
     def fetch_one(self, _id):
-        doc = db.patents.find_one({'_id': ObjectId(_id)}, {'mpk': 1, '_id':0})
+        doc = db.patents.find_one({'_id': ObjectId(_id)}, {'mpk': 1, '_id': 0})
         if 'mpk' in doc:
             doc = self.rename(doc)
             doc['mpk'] = [self.clean_mpk(mpk) for mpk in doc['mpk']]
         else:
             doc['mpk'] = []
         return doc
-
 
     def fetch_all(self, samples, all_ids, fname=None):
         for q_ix, pos, neg in tqdm(samples):
@@ -202,7 +200,6 @@ class MPKFetcher:
 
 
 if __name__ == "__main__":
-
     #   ###################################################################
 
     client = MongoClient()
@@ -222,12 +219,3 @@ if __name__ == "__main__":
     list_block = glob('../data/documents/*')
     list_block.sort(key=natural_keys)
     save_corpus(list_block, '../data', prefix='corpus')
-
-
-
-
-
-
-
-
-

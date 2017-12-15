@@ -1,3 +1,4 @@
+
 from common import *
 import random
 from operator import itemgetter
@@ -7,6 +8,20 @@ from sklearn.metrics import accuracy_score, f1_score, \
 from scipy.spatial import distance
 from itertools import filterfalse, starmap, chain
 import fetching as fc
+
+
+def to_dataframe(ftr_list):
+    ftrs = pd.DataFrame.from_dict(ftr_list, orient='columns')
+    ftrs.fillna(0, inplace=True)
+    return ftrs
+
+
+def save(ftrs, fname, index_names=('q', 'd'), compression=None):
+    ftrs.sort_values(index_names, inplace=True)
+    ftrs.set_index(index_names, inplace=True)
+
+    print('saving to %s ...\n' % fname)
+    ftrs.to_csv(fname, compression=compression)
 
 
 def build_tfidf_index(dictionary, corpus, anew=True):
@@ -43,7 +58,7 @@ class TfIdfBlob:
         argsorted = np.argsort(-cosines)[, :limit]
         return argsorted
 
-    def extract(self, samples, all_ids, fname=None):
+    def extract(self, samples, all_ids, fname):
         def pick_scores(cosine_list, sample):
             q = all_ids[sample[0]]
             negs = chain(sample[1], sample[2])
@@ -67,7 +82,8 @@ class TfIdfBlob:
                  part in chunkify(samples_part, cpu_count))
             ftrs += chain.from_iterable(res)
 
-        ftrs = DataFramer(ftrs, fname=fname)
+        ftrs = to_dataframe(ftrs)
+        save(ftrs, fname)
         return ftrs
 
 
@@ -80,7 +96,7 @@ class NegativeSampler:
         self.k = k
         self.percentile = percentile
 
-        q = range(10, 100, 10)
+        q = range(80, 100, 5)
         self.percentiles = np.percentile(neg_ixs_distr, q)
         self.worst_pos = int(self.percentiles[percentile][0])
 
@@ -138,47 +154,46 @@ class NegativeSampler:
 
 
 class QDR:
-    def __init__(self, fname):
-        self.fname = fname
+    def __init__(self, fmodel):
+        self.fmodel = fmodel
         self.model = None
-        self.all_sampled_docs = None
+        self._corpus = None
+        self._map = None
 
     def train(self, corpus_files):
-        corpus_iter = fc.iter_docs(corpus_files)
+        corpus_iter = fc.iter_docs(corpus_files, encode=True)
         self.model = qdr.Trainer()
         self.model.train(corpus_iter)
-        self.model.serialize_to_file(self.fname)
+        self.model.serialize_to_file(self.fmodel)
 
     def load(self):
-        self.model = qdr.QueryDocumentRelevance.load_from_file(self.fname)
+        self.model = qdr.QueryDocumentRelevance.load_from_file(self.fmodel)
+        return self.model
 
-    def save_qdr_features(self, samples, all_ids, corpus, fname=None):
-        l = np.ravel([[anc] + pos + neg for anc, pos, neg in samples])
-        sample_ids = sorted(list(set(l)))
-        sample_ids_map = {ix: i for i, ix in enumerate(sample_ids)}
+    def _get(self, ix):
+        doc = self._corpus[self._map[ix]]
+        doc = {str(k).encode(): v for k, v in doc}
+        return doc
+
+    def extract(self, doc_pairs, all_ids, corpus, fname):
+        ixs = sorted(list(set(chain.from_iterable(doc_pairs))))
+        self._map = {ix: i for i, ix in enumerate(ixs)}
 
         # load all corpus into RAM
-        self.all_sampled_docs = list(corpus[sample_ids])
+        self._corpus = list(corpus[ixs])
         print('loaded')
 
         ftrs = []
-        pairs = chain.from_iterable([[(anc, i) for i in pos + neg]
-                                     for anc, pos, neg in samples])
-
-        def convert(ix):
-            doc = self.all_sampled_docs[sample_ids_map[ix]]
-            doc = {str(k).encode(): v for k, v in doc}
-            return doc
-
-        for q_ix, d_ix in tqdm(pairs):
-            _s = {'q': all_ids[q_ix], 'd': all_ids[d_ix]}
-            pred = self.model.score(convert(d_ix), convert(q_ix))
+        for qix, dix in tqdm(doc_pairs):
+            _s = {'q': all_ids[qix], 'd': all_ids[dix]}
+            pred = self.model.score(self._get(dix), self._get(qix))
             _s.update(pred)
             ftrs.append(_s)
 
         print("got scores")
 
-        ftrs = DataFramer(ftrs, fname=fname)
+        ftrs = to_dataframe(ftrs)
+        save(ftrs, fname)
         return ftrs
 
     def bm25_sanity_check(self, corpus, all_ids):
@@ -245,7 +260,7 @@ class Independent:
         self.corpus_files = corpus_files
         self.ids = ids
 
-    def extract(self, fname=None):
+    def extract(self, fname):
         ftrs = []
         for _id, doc in fc.iter_docs(self.corpus_files, encode=False, with_ids=True, as_is=True):
             if _id not in self.ids:
@@ -260,7 +275,8 @@ class Independent:
             _ft['total_len'] = _l
             ftrs.append(_ft)
 
-        ftrs = DataFramer(ftrs, fname=fname, index_names='q')
+        ftrs = to_dataframe(ftrs)
+        save(ftrs, fname, index_names='q')
         return ftrs
 
 
@@ -270,13 +286,13 @@ class Jaccard:
 
     def extract(self, samples, all_ids, fname=None):
         ftrs = []
-        for el in tqdm(samples):
-            key = all_ids[el[0]]
+        for anc, pos, neg in tqdm(samples):
+            key = all_ids[anc]
             q = self.docs_ram[key]
             q_sets = {}
             for k, v in q.items():
                 q_sets[k] = set(v)
-            for _ix in el[1] + el[2]:
+            for _ix in pos + neg:
                 _id = all_ids[_ix]
                 jac = {'q': key, 'd': _id}
                 d = self.docs_ram[_id]
@@ -288,28 +304,30 @@ class Jaccard:
                             jac['%s_j' % k] = j
                 ftrs.append(jac)
 
-        ftrs = DataFramer(ftrs, fname)
+        ftrs = to_dataframe(ftrs)
+        save(ftrs, fname, index_names='q')
         return ftrs
 
 
 class Distribured:
-    def __init__(self, w2v_model, docs_in_ram, all_ids):
+    def __init__(self, w2v_model, corpus_files, all_ids):
         self.wv = w2v_model.wv
         self.index2word = self.wv.index2word
         self.all_ids = all_ids
         self.cosines = []
-        self.docs_in_ram = docs_in_ram
+        self.docs_in_ram = push_docs_to_ram(self.wv.vocab, self.index2word, corpus_files, is_gensim=True)
 
     def extract(self, samples, fname=None, n_chunks=50):
-        cosines = []
+        ftrs = []
         for keys_part in tqdm(chunkify(samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
                 (delayed(self.cosines_worker)(part) for
                  part in chunkify(keys_part, cpu_count))
-            cosines += list(chain.from_iterable(res))
+            ftrs += list(chain.from_iterable(res))
 
-        cosines = DataFramer(cosines, fname=fname)
-        return cosines
+        ftrs = to_dataframe(ftrs)
+        save(ftrs, fname, index_names='q')
+        return ftrs
 
     def cosines_worker(self, samples_part):
         def mean_vector(vectors):
@@ -319,14 +337,14 @@ class Distribured:
                 return vectors
 
         cosines = []
-        for count, el in enumerate(samples_part):
-            key = self.all_ids[el[0]]
+        for count, anc, pos, neg in enumerate(samples_part):
+            key = self.all_ids[anc]
             q = self.docs_in_ram[key]
             q_vecs = {}
             for k, v in q.items():
                 if len(v):
                     q_vecs[k] = mean_vector(self.wv[itemgetter(*v)(self.index2word)])
-            for _ix in el[1] + el[2]:
+            for _ix in pos + neg:
                 _id = self.all_ids[_ix]
                 _cos = {'q': key, 'd': _id}
                 d = self.docs_in_ram[_id]
@@ -347,7 +365,7 @@ class MPK:
                     'subclass', 'main_group', 'subgroup']
 
     def extract(self, all_mpk, samples, all_ids, fname):
-        mpk_ftrs = []
+        ftrs = []
         for q_ix, pos, neg in tqdm(samples):
             q_id = all_ids[q_ix]
             q = all_mpk[q_id]
@@ -357,10 +375,11 @@ class MPK:
                 d = all_mpk[_id]
                 n = self.compare_mpk(q['mpk'], d['mpk'], self.way)
                 _ft['mpk'] = n
-                mpk_ftrs.append(_ft)
+                ftrs.append(_ft)
 
-        mpk_ftrs = DataFramer(mpk_ftrs, fname=fname)
-        return mpk_ftrs
+        ftrs = to_dataframe(ftrs)
+        save(ftrs, fname, index_names='q')
+        return ftrs
 
     @staticmethod
     def compare_mpk_level(mpk1, mpk2, tag):
@@ -401,19 +420,6 @@ class MPK:
             _mpk2 = make_tuple(itemgetter(*ixs2)(mpk2))
             sub_count = max(sub_count, MPK.compare_mpk(_mpk1, _mpk2, way[1:]))
         return count + sub_count
-
-
-class DataFramer(pd.DataFrame):
-    def __init__(self, ftr_list, index_names=('q', 'd'), fname=None, compression=None):
-        self.ftr_list = ftr_list
-        ftrs = pd.DataFrame.from_dict(self.ftr_list, orient='columns')
-        ftrs.fillna(0, inplace=True)
-        ftrs.sort_values(index_names, inplace=True)
-        ftrs.set_index(index_names, inplace=True)
-        pd.DataFrame.__init__(self, ftrs)
-
-        if fname:
-            self.to_csv(fname, compression=compression)
 
 
 def evaluate_probs(probs, y_test, threshold=0.5):
