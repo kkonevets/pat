@@ -58,27 +58,27 @@ class TfIdfBlob:
         argsorted = np.argsort(-cosines)[:, :limit]
         return argsorted
 
+    def _worker(self, part):
+        if len(part) == 0:
+            return []
+        ixs = [el[0] for el in part]
+        cosines = self.get_cosines(ixs)
+        args = zip(cosines, part)
+        picked = list(starmap(self.pick_scores, args))
+        return picked
+
+    def pick_scores(self, cosine_list, sample):
+        q = self.all_ids[sample[0]]
+        negs = chain(sample[1], sample[2])
+        cosines = [{'q': q, 'd': self.all_ids[ix],
+                    'tfidf_gs': cosine_list[ix]} for ix in negs]
+        return cosines
+
     def extract(self, samples, all_ids, fname):
-        def pick_scores(cosine_list, sample):
-            q = all_ids[sample[0]]
-            negs = chain(sample[1], sample[2])
-            cosines = [{'q': q, 'd': all_ids[ix],
-                        'tfidf_gs': cosine_list[ix]} for ix in negs]
-            return cosines
-
-        def worker(part):
-            if len(part) == 0:
-                return []
-            ixs = [el[0] for el in part]
-            cosines = self.get_cosines(ixs)
-            args = zip(cosines, part)
-            picked = list(starmap(pick_scores, args))
-            return picked
-
         ftrs = []
         for samples_part in tqdm(chunkify(samples, 100)):
             res = Parallel(n_jobs=cpu_count, backend="threading") \
-                (delayed(worker)(part) for
+                (delayed(self._worker)(part) for
                  part in chunkify(samples_part, cpu_count))
             ftrs += chain.from_iterable(res)
 
