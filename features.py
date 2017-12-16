@@ -323,7 +323,7 @@ class Distribured:
         ftrs = []
         for keys_part in tqdm(chunkify(samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
-                (delayed(self.cosines_worker)(part) for
+                (delayed(self._worker)(part) for
                  part in chunkify(keys_part, cpu_count))
             ftrs += list(chain.from_iterable(res))
 
@@ -331,7 +331,7 @@ class Distribured:
         save(ftrs, fname, index_names='q')
         return ftrs
 
-    def cosines_worker(self, samples_part):
+    def _worker(self, samples_part):
         def mean_vector(vectors):
             if vectors.ndim > 1:
                 return vectors.mean(axis=0)
