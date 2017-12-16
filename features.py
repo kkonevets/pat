@@ -129,8 +129,8 @@ class NegativeSampler:
                  part in np.array_split(ixs_part, cpu_count))
             samples += list(chain.from_iterable(res))
 
-        # with open(fname, 'w') as f:
-        #     json.dump(samples, f)
+        with open(fname, 'w') as f:
+            json.dump(samples, f)
         return samples
 
     def sample_negs(self, iix, key_ix):
@@ -147,7 +147,7 @@ class NegativeSampler:
                                (int(iix[j]) for j in self.neg_ixs_distr[i:]))
         far_negs = list(first_unique(filtered, size)) + [int(iix[self.worst_pos])]
 
-        return key_ix, posvs, close_negs + far_negs
+        return int(key_ix), posvs, close_negs + far_negs
 
     def found_at(self, iix, key_ix):
         posvs = self.sims[key_ix]
