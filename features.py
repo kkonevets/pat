@@ -113,6 +113,7 @@ class NegativeSampler:
 
         random.seed(seed)
         random.shuffle(self.neg_ixs_distr)
+        self.samples = None
 
     def gen_samples(self, fname, n_chunks=500):
         # try:
@@ -131,6 +132,7 @@ class NegativeSampler:
         with open(fname, 'w') as f:
             json.dump(samples, f)
 
+        self.samples = samples
         return samples
 
     def sample_negs(self, iix, key_ix):
