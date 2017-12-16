@@ -129,10 +129,8 @@ class NegativeSampler:
                  part in np.array_split(ixs_part, cpu_count))
             samples += list(chain.from_iterable(res))
 
-        with open(fname, 'w') as f:
-            json.dump(samples, f)
-
-        self.samples = samples
+        # with open(fname, 'w') as f:
+        #     json.dump(samples, f)
         return samples
 
     def sample_negs(self, iix, key_ix):
