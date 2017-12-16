@@ -40,7 +40,7 @@ with open('../data/sampled.json', 'r') as f:
 
 # ############################ small test  ##################################
 
-tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index)
+tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
 preds = tfidf_blob.predict(gold.keys(), limit=200)
 res = evaluate(preds, gold)
 """
@@ -56,14 +56,14 @@ df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
 df.describe()
 neg_ixs_distr = df['rank'].values
 
-tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index)
+tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
 ns = ft.NegativeSampler(sims, tfidf_blob, neg_ixs_distr,
                  k=1, percentile=90, seed=SEED)
 samples = ns.gen_samples('../data/sampled.json', n_chunks=500)
 
 #   ############################# gensim tfidf ##############################
 
-tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index)
+tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
 tfidf_scores = tfidf_blob.extract(samples, all_ids, '../data/tfidf.csv')
 
 # ################################## QDR #####################################

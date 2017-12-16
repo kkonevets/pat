@@ -40,10 +40,11 @@ def build_tfidf_index(dictionary, corpus, anew=True):
 
 
 class TfIdfBlob:
-    def __init__(self, corpus, tfidf, index):
+    def __init__(self, corpus, tfidf, index, all_ids):
         self.corpus = corpus
         self.tfidf = tfidf
         self.index = index
+        self.all_ids = all_ids
 
     def get_cosines(self, ixs):
         if len(ixs) == 0:
@@ -74,7 +75,7 @@ class TfIdfBlob:
                     'tfidf_gs': cosine_list[ix]} for ix in negs]
         return cosines
 
-    def extract(self, samples, all_ids, fname):
+    def extract(self, samples, fname):
         ftrs = []
         for samples_part in tqdm(chunkify(samples, 100)):
             res = Parallel(n_jobs=cpu_count, backend="threading") \
@@ -85,16 +86,6 @@ class TfIdfBlob:
         ftrs = to_dataframe(ftrs)
         save(ftrs, fname)
         return ftrs
-
-
-def neg_sampler_worker(ns, ixs):
-    argsorted = ns.tfidf_blob.predict(ixs)
-    # first element is a query itself
-    args = ((iix[1:], ix) for iix, ix in
-            zip(argsorted, ixs))
-    samps = list(starmap(ns.sample_negs, args))
-    # found = list(chain.from_iterable((starmap(found_at, args2))))
-    return samps
 
 
 class NegativeSampler:
@@ -115,6 +106,15 @@ class NegativeSampler:
         random.shuffle(self.neg_ixs_distr)
         self.samples = None
 
+    def _worker(self, ns, ixs):
+        argsorted = ns.tfidf_blob.predict(ixs)
+        # first element is a query itself
+        args = ((iix[1:], ix) for iix, ix in
+                zip(argsorted, ixs))
+        samps = list(starmap(ns.sample_negs, args))
+        # found = list(chain.from_iterable((starmap(found_at, args2))))
+        return samps
+
     def gen_samples(self, fname, n_chunks=500):
         # try:
         #     os.remove('../data/foundat.csv')
@@ -125,7 +125,7 @@ class NegativeSampler:
         keys = list(self.sims.keys())
         for ixs_part in tqdm(np.array_split(keys, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="threading") \
-                (delayed(neg_sampler_worker)(self, part) for
+                (delayed(self._worker)(self, part) for
                  part in np.array_split(ixs_part, cpu_count))
             samples += list(chain.from_iterable(res))
 
