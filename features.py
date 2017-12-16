@@ -77,7 +77,7 @@ class TfIdfBlob:
 
     def extract(self, samples, fname):
         ftrs = []
-        for samples_part in tqdm(chunkify(samples, 100)):
+        for samples_part in tqdm(chunkify(samples, 200)):
             res = Parallel(n_jobs=cpu_count, backend="threading") \
                 (delayed(self._worker)(part) for
                  part in chunkify(samples_part, cpu_count))
