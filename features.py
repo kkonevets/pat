@@ -84,7 +84,7 @@ class TfIdfBlob:
             ftrs += chain.from_iterable(chain.from_iterable(res))
 
         ftrs = to_dataframe(ftrs)
-        # save(ftrs, fname)
+        save(ftrs, fname)
         return ftrs
 
 
