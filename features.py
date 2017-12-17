@@ -323,8 +323,9 @@ class Distribured:
         self.cosines = []
         self.docs_in_ram = push_docs_to_ram(ids, self.wv.vocab,
                                             corpus_files, is_gensim=True)
+        gc.collect()
 
-    def extract(self, fname=None, n_chunks=50):
+    def extract(self, fname, n_chunks=50):
         ftrs = []
         for keys_part in tqdm(chunkify(self.samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
@@ -467,9 +468,10 @@ def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
     res = Parallel(n_jobs=cpu_count) \
         (delayed(push_worker)(ids, token2id, files, is_gensim) for
          files in np.array_split(corpus_files, cpu_count))
-    for s in res:
-        docs_ram.update(s)
+    for d in res:
+        docs_ram.update(d)
     print("docs in ram\n")
+    print(len(docs_ram))
     return docs_ram
 
 
