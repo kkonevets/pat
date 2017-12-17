@@ -313,16 +313,19 @@ class Jaccard:
 
 
 class Distribured:
-    def __init__(self, w2v_model, corpus_files, all_ids):
+    def __init__(self, samples, w2v_model, corpus_files, all_ids):
         self.wv = w2v_model.wv
+        self.samples = samples
+        ids = set(list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])))
         self.index2word = self.wv.index2word
         self.all_ids = all_ids
         self.cosines = []
-        self.docs_in_ram = push_docs_to_ram(self.wv.vocab, self.index2word, corpus_files, is_gensim=True)
+        self.docs_in_ram = push_docs_to_ram(ids, self.wv.vocab,
+                                            corpus_files, is_gensim=True)
 
-    def extract(self, samples, fname=None, n_chunks=50):
+    def extract(self, fname=None, n_chunks=50):
         ftrs = []
-        for keys_part in tqdm(chunkify(samples, n_chunks)):
+        for keys_part in tqdm(chunkify(self.samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
                 (delayed(self._worker)(part) for
                  part in chunkify(keys_part, cpu_count))

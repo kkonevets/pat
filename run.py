@@ -118,8 +118,8 @@ model = Word2Vec.load('../data/w2v_200_5_w8')
 # for w ,s in model.most_similar('стол', topn=10):
 #     print('%s %s' % (w,s))
 
-disted = ft.Distribured(model, corpus_files, all_ids)
-cosines = disted.extract(samples, '../data/cosines.csv', n_chunks=50)
+dsd = ft.Distribured(samples, model, corpus_files, all_ids)
+cosines = dsd.extract('../data/cosines.csv', n_chunks=50)
 
 cosines = pd.read_csv('../data/cosines.csv')
 
