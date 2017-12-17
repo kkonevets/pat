@@ -340,7 +340,7 @@ class Distribured:
                 return vectors
 
         cosines = []
-        for count, anc, pos, neg in enumerate(samples_part):
+        for count, (anc, pos, neg) in enumerate(samples_part):
             key = self.all_ids[anc]
             q = self.docs_in_ram[key]
             q_vecs = {}
