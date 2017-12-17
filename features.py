@@ -16,7 +16,7 @@ def to_dataframe(ftr_list):
     return ftrs
 
 
-def save(ftrs, fname, index_names=('q', 'd'), compression=None):
+def save(ftrs, fname, index_names=['q', 'd'], compression=None):
     ftrs.sort_values(index_names, inplace=True)
     ftrs.set_index(index_names, inplace=True)
 
