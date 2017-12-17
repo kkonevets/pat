@@ -81,8 +81,9 @@ class TfIdfBlob:
             res = Parallel(n_jobs=cpu_count, backend="threading") \
                 (delayed(self._worker)(part) for
                  part in chunkify(samples_part, cpu_count))
-            ftrs += chain.from_iterable(res)
+            ftrs += chain.from_iterable(chain.from_iterable(res))
 
+        ftrs =
         ftrs = to_dataframe(ftrs)
         # save(ftrs, fname)
         return ftrs
