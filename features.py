@@ -316,7 +316,8 @@ class Distribured:
     def __init__(self, samples, w2v_model, corpus_files, all_ids):
         self.wv = w2v_model.wv
         self.samples = samples
-        ids = set(list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])))
+        ids = chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])
+        ids = set([all_ids[el] for el in ids])
         self.index2word = self.wv.index2word
         self.all_ids = all_ids
         self.cosines = []
@@ -450,7 +451,7 @@ def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
         if _id not in ids:
             continue
         _doc = {}
-        for k, v in doc.items():
+        for k,v in doc.items():
             if is_gensim:
                 _ids = [token2id[w].index for s in v for w in s if w in token2id]
             else:
