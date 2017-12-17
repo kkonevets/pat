@@ -91,7 +91,8 @@ joined = qdr_ftrs.merge(tfidf_ftrs, on=['q', 'd'])
 
 #   ###################### independent and jaccard #############################
 
-unique = set(joined['q']).union(joined['d'])
+unique = chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])
+unique = set([all_ids[el] for el in unique])
 
 indep = ft.Independent(corpus_files, unique)
 ind_ftrs = indep.extract('../data/independ_ftrs.csv')

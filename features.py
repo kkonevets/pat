@@ -444,7 +444,7 @@ def evaluate_probs(probs, y_test, threshold=0.5):
     return cm
 
 
-def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
+def push_worker(ids, token2id, corpus_files, is_gensim=False):
     docs_ram = {}
 
     for _id, doc in fc.iter_docs(corpus_files, encode=False, with_ids=True, as_is=True):
@@ -458,6 +458,16 @@ def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
                 _ids = [token2id[w] for s in v for w in s]
             _doc[k] = _ids
         docs_ram[_id] = _doc
+
+
+def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
+    docs_ram = {}
+
+    res = Parallel(n_jobs=cpu_count) \
+        (delayed(push_worker)(ids, token2id, files, is_gensim) for
+         files in np.array_split(corpus_files, cpu_count))
+    for s in res:
+        docs_ram.update(s)
     return docs_ram
 
 
