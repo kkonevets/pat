@@ -75,16 +75,16 @@ class TfIdfBlob:
                     'tfidf_gs': cosine_list[ix]} for ix in negs]
         return cosines
 
-    def extract(self, samples, fname):
+    def extract(self, samples, fname, n_chunks=150):
         ftrs = []
-        for samples_part in tqdm(chunkify(samples, 5)):
+        for samples_part in tqdm(chunkify(samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="threading") \
                 (delayed(self._worker)(part) for
                  part in chunkify(samples_part, cpu_count))
             ftrs += chain.from_iterable(chain.from_iterable(res))
 
         ftrs = to_dataframe(ftrs)
-        # save(ftrs, fname)
+        save(ftrs, fname)
         return ftrs
 
 

@@ -64,7 +64,7 @@ samples = ns.gen_samples('../data/sampled.json', n_chunks=500)
 #   ############################# gensim tfidf ##############################
 
 tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
-tfidf_scores = tfidf_blob.extract(samples, '../data/tfidf.csv')
+tfidf_scores = tfidf_blob.extract(samples, '../data/tfidf.csv', n_chunks=150)
 
 # ################################## QDR #####################################
 
