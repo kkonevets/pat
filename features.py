@@ -458,6 +458,7 @@ def push_worker(ids, token2id, corpus_files, is_gensim=False):
                 _ids = [token2id[w] for s in v for w in s]
             _doc[k] = _ids
         docs_ram[_id] = _doc
+    return docs_ram
 
 
 def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
