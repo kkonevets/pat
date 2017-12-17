@@ -83,7 +83,6 @@ class TfIdfBlob:
                  part in chunkify(samples_part, cpu_count))
             ftrs += chain.from_iterable(chain.from_iterable(res))
 
-        ftrs =
         ftrs = to_dataframe(ftrs)
         # save(ftrs, fname)
         return ftrs
