@@ -308,7 +308,7 @@ class Jaccard:
                 ftrs.append(jac)
 
         ftrs = to_dataframe(ftrs)
-        save(ftrs, fname, index_names='q')
+        save(ftrs, fname)
         return ftrs
 
 
@@ -329,7 +329,7 @@ class Distribured:
             ftrs += list(chain.from_iterable(res))
 
         ftrs = to_dataframe(ftrs)
-        save(ftrs, fname, index_names=['q'])
+        save(ftrs, fname)
         return ftrs
 
     def _worker(self, samples_part):
@@ -381,7 +381,7 @@ class MPK:
                 ftrs.append(_ft)
 
         ftrs = to_dataframe(ftrs)
-        save(ftrs, fname, index_names='q')
+        save(ftrs, fname)
         return ftrs
 
     @staticmethod
