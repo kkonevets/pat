@@ -316,7 +316,7 @@ class Distribured:
     def __init__(self, samples, w2v_model, corpus_files, all_ids):
         self.wv = w2v_model.wv
         self.samples = samples
-        ids = chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])
+        ids = list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples]))
         ids = set([all_ids[el] for el in ids])
         self.index2word = self.wv.index2word
         self.all_ids = all_ids
