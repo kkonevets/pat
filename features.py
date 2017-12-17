@@ -278,7 +278,7 @@ class Independent:
             ftrs.append(_ft)
 
         ftrs = to_dataframe(ftrs)
-        save(ftrs, fname, index_names='q')
+        save(ftrs, fname, index_names=['q'])
         return ftrs
 
 
