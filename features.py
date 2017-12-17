@@ -264,7 +264,8 @@ class Independent:
 
     def extract(self, fname):
         ftrs = []
-        for _id, doc in fc.iter_docs(self.corpus_files, encode=False, with_ids=True, as_is=True):
+        for _id, doc in fc.iter_docs(self.corpus_files, encode=False,
+                                     with_ids=True, as_is=True):
             if _id not in self.ids:
                 continue
             _ft = {'q': _id}
@@ -328,7 +329,7 @@ class Distribured:
             ftrs += list(chain.from_iterable(res))
 
         ftrs = to_dataframe(ftrs)
-        save(ftrs, fname, index_names='q')
+        save(ftrs, fname, index_names=['q'])
         return ftrs
 
     def _worker(self, samples_part):
