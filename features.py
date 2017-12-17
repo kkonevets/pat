@@ -342,29 +342,27 @@ def distributed_worker(all_ids, wv, docs_in_ram, samples_part, index2word):
     return cosines
 
 
-class Distribured:
-    def __init__(self, samples, w2v_model, corpus_files, all_ids):
-        self.wv = w2v_model.wv
-        self.samples = samples
-        ids = list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples]))
-        ids = set([all_ids[el] for el in ids])
-        self.index2word = self.wv.index2word
-        self.all_ids = all_ids
-        self.cosines = []
-        self.docs_in_ram = push_docs_to_ram(ids, self.wv.vocab,
-                                            corpus_files, is_gensim=True)
+def distributed(samples, w2v_model, corpus_files, all_ids, fname, n_chunks=50):
+    wv = w2v_model.wv
+    samples = samples
+    ids = list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples]))
+    ids = set([all_ids[el] for el in ids])
+    index2word = wv.index2word
+    all_ids = all_ids
+    cosines = []
+    docs_in_ram = push_docs_to_ram(ids, wv.vocab,
+                                        corpus_files, is_gensim=True)
 
-    def extract(self, fname, n_chunks=50):
-        ftrs = []
-        for keys_part in tqdm(chunkify(self.samples, n_chunks)):
-            res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
-                (delayed(distributed_worker)(self.all_ids, self.wv, self.docs_in_ram, part, self.index2word) for
-                 part in chunkify(keys_part, cpu_count))
-            ftrs += list(chain.from_iterable(res))
+    ftrs = []
+    for keys_part in tqdm(chunkify(samples, n_chunks)):
+        res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
+            (delayed(distributed_worker)(all_ids, wv, docs_in_ram, part, index2word) for
+             part in chunkify(keys_part, cpu_count))
+        ftrs += list(chain.from_iterable(res))
 
-        ftrs = to_dataframe(ftrs)
-        save(ftrs, fname)
-        return ftrs
+    ftrs = to_dataframe(ftrs)
+    save(ftrs, fname)
+    return ftrs
 
 
 class MPK:
