@@ -468,6 +468,7 @@ def push_docs_to_ram(ids, token2id, corpus_files, is_gensim=False):
          files in np.array_split(corpus_files, cpu_count))
     for s in res:
         docs_ram.update(s)
+    print("docs in ram\n")
     return docs_ram
 
 
