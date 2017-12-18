@@ -186,7 +186,8 @@ class MPKFetcher:
         return doc
 
     def fetch_all(self, samples, all_ids, fname=None):
-        for q_ix, pos, neg in tqdm(samples):
+        for q_ix, pos, neg in tqdm(samples
+                                   ):
             for _ix in [q_ix] + pos + neg:
                 _id = all_ids[_ix]
                 if _id not in self.all_mpk:
