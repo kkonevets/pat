@@ -206,12 +206,17 @@ joined[:10000].to_csv('../data/ftrs_show.csv')
 
 joined = pd.read_csv('../data/ftrs.csv.gz')
 
-#   ######################### LETOR format #############################
+#   ######################### LETOR format ###sims = fc.load_sims('../data/sims.json')
+keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
+keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
 
-train, test = train_test_split(joined, test_size=0.2, random_state=SEED)
-train, vali = train_test_split(train, test_size=0.2, random_state=SEED)
+train = joined[joined['q'].isin(keys_train)]
+vali = joined[joined['q'].isin(keys_val)]
+test = joined[joined['q'].isin(keys_test)]
 
 ft.save_letor(train, '../data/train.txt')
 ft.save_letor(vali, '../data/vali.txt')
 ft.save_letor(test, '../data/test.txt')
+
+##########################
 
