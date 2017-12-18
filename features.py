@@ -332,7 +332,7 @@ class Distribured:
         ftrs = []
         for samp_part in tqdm(chunkify(self.samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
-                (delayed(unwrap_self)(zip(self, part)) for
+                (delayed(unwrap_self)(self, part) for
                  part in chunkify(samp_part, cpu_count))
             ftrs += list(chain.from_iterable(res))
 
