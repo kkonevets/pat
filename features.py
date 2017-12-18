@@ -313,7 +313,7 @@ class Jaccard:
 
 
 def unwrap_self(*arg, **kwarg):
-    print(arg)
+    print(arg[0])
     return Distribured.worker(*arg, **kwarg)
 
 
