@@ -148,8 +148,9 @@ all_mpk = fc.MPKFetcher().fetch_all(samples, all_ids, fname='../data/all_mpk.pkl
 with open('../data/all_mpk.pkl', 'rb') as f:
     all_mpk = pickle.load(f)
 
-mpk_ftrs = ft.MPK().extract(all_mpk, samples, all_ids, '../data/mpk_ftrs.csv')
-mpk_ftrs = pd.read_csv('../data/mpk_ftrs.csv')
+mpk_ftrs = ft.MPK().extract(all_mpk, samples, all_ids, '../data/mpk.csv')
+mpk_ftrs = pd.read_csv('../data/mpk.csv')
+mpk_ftrs.drop_duplicates(['q', 'd'], inplace=True)
 
 #   ################################# unite features #############################
 
@@ -191,8 +192,10 @@ joined = joined.merge(ranks, on=['q', 'd'])
 
 cosines = pd.read_csv('../data/cosines.csv')
 joined = joined.merge(cosines, on=['q', 'd'])
+joined.drop_duplicates(['q', 'd'], inplace=True)
 
-mpk_ftrs = pd.read_csv('../data/mpk_ftrs.csv')
+mpk_ftrs = pd.read_csv('../data/mpk.csv')
+mpk_ftrs.drop_duplicates(['q', 'd'], inplace=True)
 joined = joined.merge(mpk_ftrs, on=['q', 'd'])
 
 joined.sort_values(['q', 'rank'], inplace=True)
@@ -205,14 +208,10 @@ joined = pd.read_csv('../data/ftrs.csv.gz')
 
 #   ######################### LETOR format #############################
 
-sims = fc.load_sims('../data/sims.json')
-keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
-keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
-
-train = joined[joined['q'].isin(keys_train)]
-vali = joined[joined['q'].isin(keys_val)]
-test = joined[joined['q'].isin(keys_test)]
+train, test = train_test_split(joined, test_size=0.2, random_state=SEED)
+train, vali = train_test_split(train, test_size=0.2, random_state=SEED)
 
 ft.save_letor(train, '../data/train.txt')
 ft.save_letor(vali, '../data/vali.txt')
+ft.save_letor(test, '../data/test.txt')
 
