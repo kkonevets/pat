@@ -166,6 +166,9 @@ for samp_part in tqdm(chunkify(samples, 50)):
 cosines = ft.to_dataframe(ftrs)
 ft.save(cosines, '../data/cosines.csv')
 
+dsd = ft.Distribured(samples, model, corpus_files, all_ids)
+dsd.extract('../data/cosines.csv', n_chunks=50)
+
 cosines = pd.read_csv('../data/cosines.csv')
 
 #   ############################### MPK #######################################

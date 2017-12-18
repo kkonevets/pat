@@ -313,6 +313,17 @@ class Jaccard:
         save(ftrs, fname)
         return ftrs
 
+def chunkIt(seq, num):
+    avg = len(seq) / float(num)
+    out = []
+    last = 0.0
+
+    while last < len(seq):
+        out.append(seq[int(last):int(last + avg)])
+        last += avg
+
+    return out
+
 
 class Distribured:
     def __init__(self, samples, w2v_model, corpus_files, all_ids):
@@ -328,10 +339,10 @@ class Distribured:
 
     def extract(self, fname, n_chunks=50):
         ftrs = []
-        for samp_part in tqdm(chunkify(self.samples, n_chunks)):
+        for samp_part in tqdm(chunkIt(self.samples, n_chunks)):
             func = partial(self.worker)
             with mp.Pool(processes=cpu_count) as pool:
-                res = pool.map(func, chunkify(samp_part, cpu_count))
+                res = pool.map(func, chunkIt(samp_part, cpu_count))
             ftrs += list(chain.from_iterable(res))
 
         ftrs = to_dataframe(ftrs)
