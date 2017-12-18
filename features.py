@@ -313,20 +313,9 @@ class Jaccard:
 
 
 def unwrap_self(*arg, **kwarg):
+    print(arg)
     return Distribured.worker(*arg, **kwarg)
 
-
-# def f(*arg, **kwarg):
-#     g(*arg, **kwarg)
-#
-#
-# def g(x, y):
-#     print(x)
-#     for i in y:
-#         print(i)
-#
-# f(1, [2,3])
-#
 
 class Distribured:
     def __init__(self, samples, w2v_model, corpus_files, all_ids):
