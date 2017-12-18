@@ -312,8 +312,8 @@ class Jaccard:
         return ftrs
 
 
-def unwrap_self(self, samples_part):
-    return Distribured.worker(self, samples_part)
+def unwrap_self(samples_part):
+    return Distribured.worker(samples_part)
 
 
 class Distribured:
