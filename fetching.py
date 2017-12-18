@@ -146,7 +146,7 @@ class MPKFetcher:
     def __init__(self):
         self.all_mpk = {}
         self.client = MongoClient()
-        self.db = client.fips
+        self.db = self.client.fips
 
     @staticmethod
     def clean_mpk(mpk):
@@ -177,7 +177,7 @@ class MPKFetcher:
         return doc
 
     def fetch_one(self, _id):
-        doc = db.patents.find_one({'_id': ObjectId(_id)}, {'mpk': 1, '_id': 0})
+        doc = self.db.patents.find_one({'_id': ObjectId(_id)}, {'mpk': 1, '_id': 0})
         if 'mpk' in doc:
             doc = self.rename(doc)
             doc['mpk'] = [self.clean_mpk(mpk) for mpk in doc['mpk']]
