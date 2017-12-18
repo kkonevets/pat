@@ -3,6 +3,8 @@ from sklearn.model_selection import train_test_split
 from itertools import *
 from collections import Counter
 import cProfile, pstats
+from operator import itemgetter
+from scipy.spatial import distance
 from importlib import reload
 import features as ft
 import fetching as fc
@@ -119,8 +121,50 @@ model = Word2Vec.load('../data/w2v_200_5_w8')
 # for w ,s in model.most_similar('стол', topn=10):
 #     print('%s %s' % (w,s))
 
-cosines = ft.distribured(model, samples, all_ids, corpus_files,
-                         '../data/cosines.csv', n_chunks=50)
+wv = model.wv
+ids = list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples]))
+ids = set([all_ids[el] for el in ids])
+index2word = wv.index2word
+docs_in_ram = ft.push_docs_to_ram(ids, wv.vocab,
+                                        corpus_files, is_gensim=True)
+
+def _worker(samples_part):
+    def mean_vector(vectors):
+        if vectors.ndim > 1:
+            return vectors.mean(axis=0)
+        else:
+            return vectors
+
+    cosines = []
+    for count, (anc, pos, neg) in enumerate(samples_part):
+        key = all_ids[anc]
+        q = docs_in_ram[key]
+        q_vecs = {}
+        for k, v in q.items():
+            if len(v):
+                q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
+        for _ix in pos + neg:
+            _id = all_ids[_ix]
+            _cos = {'q': key, 'd': _id}
+            d = docs_in_ram[_id]
+            for k, v in d.items():
+                if len(v):
+                    vec = mean_vector(wv[itemgetter(*v)(index2word)])
+                    if k in q_vecs and len(vec) and len(q_vecs[k]):
+                        _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
+            cosines.append(_cos)
+    return cosines
+
+
+ftrs = []
+for samp_part in tqdm(chunkify(samples, 50)):
+    res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
+        (delayed(_worker)(part) for
+         part in chunkify(samp_part, cpu_count))
+    ftrs += list(chain.from_iterable(res))
+
+cosines = ft.to_dataframe(ftrs)
+ft.save(cosines, '../data/cosines.csv')
 
 cosines = pd.read_csv('../data/cosines.csv')
 
