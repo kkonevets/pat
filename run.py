@@ -198,8 +198,8 @@ mpk_ftrs = pd.read_csv('../data/mpk.csv')
 mpk_ftrs.drop_duplicates(['q', 'd'], inplace=True)
 joined = joined.merge(mpk_ftrs, on=['q', 'd'])
 
-joined.sort_values(['q', 'rank'], inplace=True)
-joined.set_index(['q', 'd'], inplace=True)
+joined.sort_values(['q', 'rank'], inplace=True, ascending=(True, False))
+joined.set_index(['q', 'd', 'rank'], inplace=True)
 
 joined.to_csv('../data/ftrs.csv.gz', compression='gzip')
 joined[:10000].to_csv('../data/ftrs_show.csv')
@@ -207,6 +207,8 @@ joined[:10000].to_csv('../data/ftrs_show.csv')
 joined = pd.read_csv('../data/ftrs.csv.gz')
 
 #   ######################### LETOR format ###sims = fc.load_sims('../data/sims.json')
+
+sims = fc.load_sims('../data/sims.json')
 keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
 keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEED)
 
