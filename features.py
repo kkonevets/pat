@@ -313,70 +313,33 @@ class Jaccard:
         save(ftrs, fname)
         return ftrs
 
-def chunkIt(seq, num):
-    avg = len(seq) / float(num)
-    out = []
-    last = 0.0
 
-    while last < len(seq):
-        out.append(seq[int(last):int(last + avg)])
-        last += avg
+def distributed_worker(all_ids, docs_in_ram, index2word, wv, samples_part):
+    def mean_vector(vectors):
+        if vectors.ndim > 1:
+            return vectors.mean(axis=0)
+        else:
+            return vectors
 
-    return out
-
-
-class Distribured:
-    def __init__(self, samples, w2v_model, corpus_files, all_ids):
-        self.wv = w2v_model.wv
-        self.samples = samples
-        ids = list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples]))
-        ids = set([all_ids[el] for el in ids])
-        self.index2word = self.wv.index2word
-        self.all_ids = all_ids
-        self.cosines = []
-        self.docs_in_ram = push_docs_to_ram(ids, self.wv.vocab,
-                                            corpus_files, is_gensim=True)
-
-    def extract(self, fname, n_chunks=50):
-        ftrs = []
-        for samp_part in tqdm(chunkIt(self.samples, n_chunks)):
-            func = partial(self.worker)
-            with mp.Pool(processes=cpu_count) as pool:
-                res = pool.map(func, chunkIt(samp_part, cpu_count))
-            ftrs += list(chain.from_iterable(res))
-
-        ftrs = to_dataframe(ftrs)
-        save(ftrs, fname)
-        return ftrs
-
-    def worker(self, samples_part):
-        def mean_vector(vectors):
-            if vectors.ndim > 1:
-                return vectors.mean(axis=0)
-            else:
-                return vectors
-
-        cosines = []
-        for count, (anc, pos, neg) in enumerate(samples_part):
-            key = self.all_ids[anc]
-            q = self.docs_in_ram[key]
-            q_vecs = {}
-            for k, v in q.items():
+    cosines = []
+    for count, (anc, pos, neg) in enumerate(samples_part):
+        key = all_ids[anc]
+        q = docs_in_ram[key]
+        q_vecs = {}
+        for k, v in q.items():
+            if len(v):
+                q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
+        for _ix in pos + neg:
+            _id = all_ids[_ix]
+            _cos = {'q': key, 'd': _id}
+            d = docs_in_ram[_id]
+            for k, v in d.items():
                 if len(v):
-                    q_vecs[k] = mean_vector(self.wv[itemgetter(*v)(self.index2word)])
-            for _ix in pos + neg:
-                _id = self.all_ids[_ix]
-                _cos = {'q': key, 'd': _id}
-                d = self.docs_in_ram[_id]
-                for k, v in d.items():
-                    if len(v):
-                        vec = mean_vector(self.wv[itemgetter(*v)(self.index2word)])
-                        if k in q_vecs and len(vec) and len(q_vecs[k]):
-                            _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
-                cosines.append(_cos)
-            # if count % 1000 == 0:
-            #     print('%d%%' % (100.*count/len(samples_part)))
-        return cosines
+                    vec = mean_vector(wv[itemgetter(*v)(index2word)])
+                    if k in q_vecs and len(vec) and len(q_vecs[k]):
+                        _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
+            cosines.append(_cos)
+    return cosines
 
 
 class MPK:

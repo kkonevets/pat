@@ -6,6 +6,7 @@ import cProfile, pstats
 from operator import itemgetter
 from scipy.spatial import distance
 from importlib import reload
+from functools import partial
 import features as ft
 import fetching as fc
 
@@ -128,46 +129,15 @@ index2word = wv.index2word
 docs_in_ram = ft.push_docs_to_ram(ids, wv.vocab,
                                         corpus_files, is_gensim=True)
 
-def _worker(samples_part):
-    def mean_vector(vectors):
-        if vectors.ndim > 1:
-            return vectors.mean(axis=0)
-        else:
-            return vectors
-
-    cosines = []
-    for count, (anc, pos, neg) in enumerate(samples_part):
-        key = all_ids[anc]
-        q = docs_in_ram[key]
-        q_vecs = {}
-        for k, v in q.items():
-            if len(v):
-                q_vecs[k] = mean_vector(wv[itemgetter(*v)(index2word)])
-        for _ix in pos + neg:
-            _id = all_ids[_ix]
-            _cos = {'q': key, 'd': _id}
-            d = docs_in_ram[_id]
-            for k, v in d.items():
-                if len(v):
-                    vec = mean_vector(wv[itemgetter(*v)(index2word)])
-                    if k in q_vecs and len(vec) and len(q_vecs[k]):
-                        _cos['%s_cos' % k] = distance.cosine(vec, q_vecs[k])
-            cosines.append(_cos)
-    return cosines
-
-
 ftrs = []
 for samp_part in tqdm(chunkify(samples, 50)):
     res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
-        (delayed(_worker)(part) for
+        (delayed(ft.distributed_worker)(all_ids, docs_in_ram, index2word, wv, part) for
          part in chunkify(samp_part, cpu_count))
     ftrs += list(chain.from_iterable(res))
 
 cosines = ft.to_dataframe(ftrs)
 ft.save(cosines, '../data/cosines.csv')
-
-dsd = ft.Distribured(samples, model, corpus_files, all_ids)
-dsd.extract('../data/cosines.csv', n_chunks=50)
 
 cosines = pd.read_csv('../data/cosines.csv')
 
@@ -184,10 +154,13 @@ mpk_ftrs = pd.read_csv('../data/mpk_ftrs.csv')
 #   ################################# unite features #############################
 
 qdr_ftrs = pd.read_csv('../data/qdr.csv')
+qdr_ftrs.drop_duplicates(['q', 'd'], inplace=True)
 tfidf_ftrs = pd.read_csv('../data/tfidf.csv')
+tfidf_ftrs.drop_duplicates(['q', 'd'], inplace=True)
 joined0 = qdr_ftrs.merge(tfidf_ftrs, on=['q', 'd'])
 
-ind_ftrs = pd.read_csv('../data/independ_ftrs.csv')
+ind_ftrs = pd.read_csv('../data/independ.csv')
+ind_ftrs.drop_duplicates(['q'], inplace=True)
 joined = joined0.merge(ind_ftrs, on='q')
 cp = ind_ftrs.copy()
 cp['d'] = cp['q']
@@ -197,14 +170,24 @@ joined = joined.merge(cp, on='d', suffixes=('_q', '_d'))
 assert len(joined0) == len(joined)
 
 jaccard = pd.read_csv('../data/jaccard.csv')
+jaccard.drop_duplicates(['q', 'd'], inplace=True)
 joined = joined.merge(jaccard, on=['q', 'd'])
 joined.drop_duplicates(['q', 'd'], inplace=True)
 pprint('%s %s' % (len(joined0), len(joined)))
 pprint(joined.isnull().sum())
 
-for _ix, g in tqdm(joined.groupby(['q'])):
-    assert len(g['rank'].unique()) > 1
-    break
+
+ranks = []
+for anc, pos, neg in samples:
+    q_id = all_ids[anc]
+    lst = [(q_id, all_ids[p], 1) for p in pos]
+    ranks += lst
+    lst = [(q_id, all_ids[n], 0) for n in neg]
+    ranks += lst
+
+ranks = pd.DataFrame(ranks, columns=['q', 'd', 'rank'])
+ranks.drop_duplicates(['q', 'd'], inplace=True)
+joined = joined.merge(ranks, on=['q', 'd'])
 
 cosines = pd.read_csv('../data/cosines.csv')
 joined = joined.merge(cosines, on=['q', 'd'])
