@@ -312,6 +312,10 @@ class Jaccard:
         return ftrs
 
 
+def unwrap_self(arg, **kwarg):
+    return Distribured.worker(*arg, **kwarg)
+
+
 class Distribured:
     def __init__(self, samples, w2v_model, corpus_files, all_ids):
         self.wv = w2v_model.wv
@@ -326,17 +330,17 @@ class Distribured:
 
     def extract(self, fname, n_chunks=50):
         ftrs = []
-        for keys_part in tqdm(chunkify(self.samples, n_chunks)):
+        for samp_part in tqdm(chunkify(self.samples, n_chunks)):
             res = Parallel(n_jobs=cpu_count, backend="multiprocessing") \
-                (delayed(self._worker)(part) for
-                 part in chunkify(keys_part, cpu_count))
+                (delayed(unwrap_self)(part) for
+                 part in chunkify(samp_part, cpu_count))
             ftrs += list(chain.from_iterable(res))
 
         ftrs = to_dataframe(ftrs)
         save(ftrs, fname)
         return ftrs
 
-    def _worker(self, samples_part):
+    def worker(self, samples_part):
         def mean_vector(vectors):
             if vectors.ndim > 1:
                 return vectors.mean(axis=0)
