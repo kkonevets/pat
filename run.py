@@ -43,8 +43,16 @@ with open('../data/sampled.json', 'r') as f:
 
 # ############################ small test  ##################################
 
+with open('../data/gold_mongo.json', 'r') as f:
+    gold = json.load(f)
+
+_gold = {ix_map[k]: [ix_map[vi] for vi in v] for k,v in gold.items()}
+
+
 tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
-preds = tfidf_blob.predict(gold.keys(), limit=200)
+preds = tfidf_blob.predict(_gold.keys(), limit=201)
+preds = preds[:, 1:]
+preds = {k: [all_ids[ix] for ix in preds[i]] for i,k in enumerate(gold.keys())}
 res = evaluate(preds, gold)
 """
 acc10 0.286738
@@ -220,5 +228,86 @@ ft.save_letor(train, '../data/train.txt')
 ft.save_letor(vali, '../data/vali.txt')
 ft.save_letor(test, '../data/test.txt')
 
-##########################
+########################## test 184 ###############################################
+
+with open('../data/gold_mongo.json', 'r') as f:
+    gold = json.load(f)
+_gold = {ix_map[k]: [ix_map[vi] for vi in v] for k,v in gold.items()}
+
+
+tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
+preds = tfidf_blob.predict(_gold.keys())
+preds = preds[:, 1:]
+
+
+found_at = []
+keys = list(_gold.keys())
+for i, iix in enumerate(preds):
+    ix = keys[i]
+    posvs = _gold[ix]
+    ixs = np.isin(iix, posvs)
+    found_at += list(np.where(ixs)[0])
+
+
+pd.Series(found_at).describe().plot.hist(bins=100)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
