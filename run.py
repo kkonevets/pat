@@ -63,7 +63,7 @@ acc200 0.573477
 # ############################# sample negs ############################
 
 df = pd.read_csv('../data/foundat.csv', header=None, names=['rank'])
-# df.plot.hist(bins=100)
+# df.plot.hist(bins=1000)
 df.describe()
 neg_ixs_distr = df['rank'].values
 
@@ -251,6 +251,7 @@ for i, iix in enumerate(preds):
 
 pd.Series(found_at).describe().plot.hist(bins=100)
 
+#   ############################ pair_scores() ##############################################
 
 
 
