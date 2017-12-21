@@ -214,7 +214,7 @@ joined[:10000].to_csv('../data/ftrs_show.csv')
 
 joined = pd.read_csv('../data/ftrs.csv.gz')
 
-#   ######################### LETOR format ###sims = fc.load_sims('../data/sims.json')
+#   ######################### LETOR format ####################################
 
 sims = fc.load_sims('../data/sims.json')
 keys_tv, keys_test = train_test_split(list(sims.keys()), test_size=0.2, random_state=SEED)
@@ -223,6 +223,26 @@ keys_train, keys_val = train_test_split(keys_tv, test_size=0.2, random_state=SEE
 train = joined[joined['q'].isin(keys_train)]
 vali = joined[joined['q'].isin(keys_val)]
 test = joined[joined['q'].isin(keys_test)]
+
+subtrain = train.drop(['q', 'd', 'rank'], axis=1)
+subvali = vali.drop(['q', 'd', 'rank'], axis=1)
+subtest = test.drop(['q', 'd', 'rank'], axis=1)
+
+from sklearn import preprocessing
+
+scaler = preprocessing.StandardScaler().fit(subtrain)
+
+
+def scale(df, scaler):
+    subdf = df.drop(['q', 'd', 'rank'], axis=1)
+    subdf = scaler.transform(subdf)
+    subdf = np.hstack((df[['q', 'd', 'rank']], subdf))
+    return pd.DataFrame(subdf, columns=df.columns)
+
+
+train = scale(train, scaler)
+vali = scale(vali, scaler)
+test = scale(test, scaler)
 
 ft.save_letor(train, '../data/train.txt')
 ft.save_letor(vali, '../data/vali.txt')
@@ -250,8 +270,6 @@ for i, iix in enumerate(preds):
 
 
 pd.Series(found_at).describe().plot.hist(bins=100)
-
-#   ############################ pair_scores() ##############################################
 
 
 
