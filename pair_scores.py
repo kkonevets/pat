@@ -29,6 +29,7 @@ class Data:
         load data to RAM for fast access
         :param ixs: document indexes
         """
+        ixs = sorted(list(set(ixs)))
         self.ixs = ixs
         self.ix_map = {ix:i for i,ix in ixs}
         self.all_ids = all_ids
@@ -38,52 +39,48 @@ class Data:
         self.dictionary = Dictionary.load('../data/corpus.dict')
         self.corpus = MmCorpus('../data/corpus.mm')
 
-        self.index = Similarity.load('../data/sim_index/sim')
         self.tfidf = TfidfModel.load('../data/tfidf.model')
         # documents as columns
         self.tfidf_vectors = corpus2csc(self.tfidf[self.corpus[ixs]])
 
         self.wv = Word2Vec.load('../data/w2v_200_5_w8').wv
-        self.docs_ram_w2v = self.push_docs_to_ram(self.wv.vocab,
-                                                  corpus_files, is_gensim=True)
 
-        self.docs_ram_dict = self.push_docs_to_ram(self.dictionary.token2id,
-                                                   corpus_files)
+        self.docs_ram_dict = self.push_docs_to_ram(corpus_files)
         self.qdr = qdr.QueryDocumentRelevance.load_from_file('../data/qdr_model.gz')
+
         with open('../data/all_mpk.pkl', 'rb') as f:
             self.all_mpk = pickle.load(f)
-
         self.mpk = ft.MPK()
 
-    def _push_worker(self, token2id, is_gensim, files):
+    @staticmethod
+    def dictionary_w2v_map(dictionary, wv):
+        maped = {dictionary.token2id[k]: v.index for k, v in wv.vocab.items()}
+        return maped
+
+    def _push_worker(self, files):
         docs_ram = {}
+        token2id = self.dictionary.token2id
 
         for _id, doc in fc.iter_docs(files, encode=False, with_ids=True, as_is=True):
             if _id not in self.ids:
                 continue
             _doc = {}
             for k, v in doc.items():
-                if is_gensim:
-                    words = [w for s in v for w in s if w in token2id]
-                    if len(words):
-                        vec = self.mean_vector(self.wv[words])
-                        _doc[k] = vec
-                else:
-                    _ids = [token2id[w] for s in v for w in s]
-                    _doc[k] = _ids
+                _ids = [token2id[w] for s in v for w in s]
+                _doc[k] = _ids
             docs_ram[_id] = _doc
         return docs_ram
 
-    def push_docs_to_ram(self, token2id, corpus_files, is_gensim=False):
+    def push_docs_to_ram(self, corpus_files):
         docs_ram = {}
 
-        func = partial(self._push_worker, token2id, is_gensim)
+        func = partial(self._push_worker)
         with multiprocessing.Pool(processes=cpu_count) as pool:
             res = pool.map(func, np.array_split(corpus_files, cpu_count))
 
         for d in res:
             docs_ram.update(d)
-        print("docs in ram, is_gensim %s\n" % is_gensim)
+        print("docs in ram\n")
         return docs_ram
 
     @staticmethod
@@ -117,35 +114,46 @@ class Data:
         else:
             return vectors
 
+    def tag_vectors(self, doc):
+        vecs = {}
+        for k,v in doc.items():
+            words = self.wv[[vi for vi in v if vi in self.wv]]
+            if len(words):
+                vec = self.mean_vector(words)
+                vecs[k] = vec
+        return vecs
+
     def doc_info(self, d_ix):
         info = {}
-        info['ix'] = d_ix
-        info['id'] = self.all_ids[d_ix]
-        info['iix'] = self.ix_map[d_ix]
-        info['tfidf_vec'] = self.tfidf_vectors[:, info['iix']]
-        info['words'] = self.docs_ram_dict[info['id']]
-        info['w2v'] = self.docs_ram_w2v[info['id']]
-        info['mpk'] = self.all_ids[info['id']]
+        _id = self.all_ids[d_ix]
+
+        info['id'] = _id
+        info['tfidf'] = self.tfidf_vectors[:, self.ix_map[d_ix]]
+        info['words'] = {k: [self.dictionary[vi] for vi in v] for k, v in self.docs_ram_dict[_id]}
+        info['w2v'] = self.tag_vectors(info['words'])
+        info['mpk'] = self.all_mpk[_id]
 
         return info
 
     def scores(self, q, d):
         ftrs = {'q': q['id'], 'd': d['id']}
+        q_words = q['words']
+        d_words = d['words']
+        q_text = chain.from_iterable(q_words.values())
+        d_text = chain.from_iterable(d_words.values())
 
-        ftrs['tfidf_gs'] = distance.cosine(q['tfidf_vec'], d['tfidf_vec'])
-        ftrs.update(self.qdr.score(q['words'], d['words']))
+        ftrs['tfidf_gs'] = distance.cosine(q['tfidf'], d['tfidf'])
+        ftrs.update(self.qdr.score(q_text, d_text))
 
-        q_text = chain.from_iterable(q['words'].values())
-        d_text = chain.from_iterable(d['words'].values())
-        ftrs.update(self.independent(q_text, prefix='q'))
-        ftrs.update(self.independent(d_text, prefix='d'))
+        ftrs.update(self.independent(q_words, prefix='q'))
+        ftrs.update(self.independent(d_words, prefix='d'))
 
-        ftrs.update(self.jaccard(q['words'], d['words']))
+        ftrs.update(self.jaccard(q_words, d_words))
 
         q_vecs = q['w2v']
         d_vecs = d['w2v']
         for k in set(q_vecs.keys()).intersection(d_vecs.keys()):
-            ftrs['%s_cos' % k] = distance.cosine(q[k], d[k])
+            ftrs['%s_cos' % k] = distance.cosine(q_vecs[k], d_vecs[k])
 
         n = self.mpk.compare_mpk(q['mpk'], d['mpk'])
         ftrs['mpk'] = n
