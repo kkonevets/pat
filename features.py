@@ -356,7 +356,7 @@ class MPK:
                 _id = all_ids[_ix]
                 _ft = {'q': q_id, 'd': _id}
                 d = all_mpk[_id]
-                n = self.compare_mpk(q['mpk'], d['mpk'])
+                n = self.compare_mpk(q['mpk'], d['mpk'], self.way)
                 _ft['mpk'] = n
                 ftrs.append(_ft)
 
@@ -384,15 +384,16 @@ class MPK:
                     ixs[1].update([j])
         return matched
 
-    def compare_mpk(self, mpk1, mpk2):
+    @staticmethod
+    def compare_mpk(mpk1, mpk2, way):
         def make_tuple(val):
             if type(val) == tuple:
                 return val
             else:
                 return (val,)
 
-        if len(self.way):
-            matched = MPK.compare_mpk_level(mpk1, mpk2, self.way[0])
+        if len(way):
+            matched = MPK.compare_mpk_level(mpk1, mpk2, way[0])
         else:
             return 0
         count = int(bool(len(matched)))
@@ -400,7 +401,7 @@ class MPK:
         for ixs1, ixs2 in matched.values():
             _mpk1 = make_tuple(itemgetter(*ixs1)(mpk1))
             _mpk2 = make_tuple(itemgetter(*ixs2)(mpk2))
-            sub_count = max(sub_count, MPK.compare_mpk(_mpk1, _mpk2, self.way[1:]))
+            sub_count = max(sub_count, MPK.compare_mpk(_mpk1, _mpk2, way[1:]))
         return count + sub_count
 
 

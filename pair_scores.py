@@ -31,12 +31,13 @@ class Data:
         """
         ixs = sorted(list(set(ixs)))
         self.ixs = ixs
-        self.ix_map = {ix:i for i,ix in ixs}
+        self.ix_map = {ix:i for i, ix in enumerate(ixs)}
         self.all_ids = all_ids
         self.ids = set(itemgetter(*ixs)(all_ids))
         self.corpus_files = corpus_files
 
         self.dictionary = Dictionary.load('../data/corpus.dict')
+        self.docs_ram_dict = self.push_docs_to_ram(corpus_files)
         self.corpus = MmCorpus('../data/corpus.mm')
 
         self.tfidf = TfidfModel.load('../data/tfidf.model')
@@ -45,12 +46,14 @@ class Data:
 
         self.wv = Word2Vec.load('../data/w2v_200_5_w8').wv
 
-        self.docs_ram_dict = self.push_docs_to_ram(corpus_files)
+        logging.info("loading qdr model")
         self.qdr = qdr.QueryDocumentRelevance.load_from_file('../data/qdr_model.gz')
 
+        logging.info("loading mpk data")
         with open('../data/all_mpk.pkl', 'rb') as f:
             self.all_mpk = pickle.load(f)
         self.mpk = ft.MPK()
+        logging.info('All data loaded')
 
     @staticmethod
     def dictionary_w2v_map(dictionary, wv):
@@ -72,6 +75,7 @@ class Data:
         return docs_ram
 
     def push_docs_to_ram(self, corpus_files):
+        logging.info("loading docs to RAM")
         docs_ram = {}
 
         func = partial(self._push_worker)
@@ -80,7 +84,8 @@ class Data:
 
         for d in res:
             docs_ram.update(d)
-        print("docs in ram\n")
+
+        logging.info("loaded docs to RAM")
         return docs_ram
 
     @staticmethod
@@ -101,9 +106,10 @@ class Data:
         _ft = {}
         _l = 0
         for k, words in doc.items():
-            _ft['%s_%s' % (k, prefix)] = len(words)
-            _ft['unique_%s_%s' % (k, prefix)] = len(set(words))
-            _l += _ft[k]
+            tag = '%s_%s' % (k, prefix)
+            _ft[tag] = len(words)
+            _ft['unique_%s' % tag] = len(set(words))
+            _l += _ft[tag]
         _ft['total_len'] = _l
         return _ft
 
@@ -128,10 +134,11 @@ class Data:
         _id = self.all_ids[d_ix]
 
         info['id'] = _id
-        info['tfidf'] = self.tfidf_vectors[:, self.ix_map[d_ix]]
-        info['words'] = {k: [self.dictionary[vi] for vi in v] for k, v in self.docs_ram_dict[_id]}
+        info['tfidf'] = self.tfidf_vectors.getcol(self.ix_map[d_ix]).toarray()
+        info['words'] = {k: [self.dictionary[vi] for vi in v]
+                         for k, v in self.docs_ram_dict[_id].items()}
         info['w2v'] = self.tag_vectors(info['words'])
-        info['mpk'] = self.all_mpk[_id]
+        info['mpk'] = self.all_mpk[_id]['mpk']
 
         return info
 
@@ -139,8 +146,8 @@ class Data:
         ftrs = {'q': q['id'], 'd': d['id']}
         q_words = q['words']
         d_words = d['words']
-        q_text = chain.from_iterable(q_words.values())
-        d_text = chain.from_iterable(d_words.values())
+        q_text = (w.encode() for w in chain.from_iterable(q_words.values()))
+        d_text = (w.encode() for w in chain.from_iterable(d_words.values()))
 
         ftrs['tfidf_gs'] = distance.cosine(q['tfidf'], d['tfidf'])
         ftrs.update(self.qdr.score(q_text, d_text))
@@ -155,12 +162,22 @@ class Data:
         for k in set(q_vecs.keys()).intersection(d_vecs.keys()):
             ftrs['%s_cos' % k] = distance.cosine(q_vecs[k], d_vecs[k])
 
-        n = self.mpk.compare_mpk(q['mpk'], d['mpk'])
+        n = self.mpk.compare_mpk(q['mpk'], d['mpk'], self.mpk.way)
         ftrs['mpk'] = n
 
         return ftrs
 
 
-# dictionary.token2id['стол']
-#
-# wv.vocab['стол'].index
+all_ids = fc.load_keys('../data/keys.json')
+corpus_files = glob('../data/documents/*')
+corpus_files.sort(key=natural_keys)
+
+q_ix = all_ids.index('5984b7c2b6b1132856638528')
+d_ix = all_ids.index('5984b65cb6b1131291638512')
+
+data = Data([q_ix, d_ix], all_ids, corpus_files)
+
+q = data.doc_info(q_ix)
+d = data.doc_info(d_ix)
+
+data.scores(q, d)
