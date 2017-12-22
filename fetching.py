@@ -52,33 +52,23 @@ def save_texts(docs, fname):
         fout.write(json_bytes)
 
 
-def do_encode(w, encode):
-    return w.encode() if encode else w
+def iter_docs(fnames, encode=False, with_ids=False, as_is=False):
+    def do_encode(w):
+        return w.encode() if encode else w
 
+    for filename in fnames:
+        with GzipFile(filename) as f:
+            data = ujson.load(f)
+        for _id, doc in data.items():
+            if as_is:
+                text = doc
+            else:
+                text = [do_encode(w) for t in doc.values() for s in t for w in s]
 
-def read_doc(_id, doc, as_is, with_ids, encode):
-    if as_is:
-        text = doc
-    else:
-        text = [do_encode(w, encode) for t in doc.values() for s in t for w in s]
-
-    if with_ids:
-        return _id, text
-    else:
-        return text
-
-
-def reqad_file(filename, as_is, with_ids, encode):
-    with GzipFile(filename) as f:
-        data = ujson.load(f)
-    return (read_doc(_id, doc, as_is, with_ids, encode) for _id, doc in data.items())
-
-
-def iter_docs(fnames, encode=False, with_ids=False, as_is=False, visual=True):
-    iterator = tqdm(fnames) if visual else fnames
-
-    for fname in iterator:
-        return (el for el in reqad_file(fname, as_is, with_ids, encode))
+            if with_ids:
+                yield (_id, text)
+            else:
+                yield text
 
 
 def keys_from_json(fnames):
