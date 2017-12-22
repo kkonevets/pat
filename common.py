@@ -11,7 +11,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 import string
-from itertools import islice, filterfalse, starmap, chain, takewhile
+from itertools import islice, filterfalse, starmap, chain, takewhile, zip_longest
 import re, json
 from tqdm import tqdm, tqdm_notebook
 from os.path import join, exists, dirname, realpath, basename
@@ -70,13 +70,11 @@ def tokenize(sentence, stop_words):
     return tokens
 
 
-def grouper(n, iterable):
-    it = iter(iterable)
-    while True:
-        chunk = tuple(islice(it, n))
-        if not chunk:
-            return
-        yield chunk
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
 
 
 def atoi(text):

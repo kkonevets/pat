@@ -8,6 +8,8 @@ from importlib import reload
 from functools import partial
 import multiprocessing
 import threading
+import time
+import ujson
 from multiprocessing.pool import ThreadPool
 import features as ft
 import fetching as fc
@@ -34,6 +36,7 @@ class Data:
 
         self.dictionary = Dictionary.load('../data/corpus.dict')
         self.token2id = self.dictionary.token2id
+        logging.info("loading docs to RAM")
         self.docs_ram_dict = self.push_docs_to_ram()
 
         self.wv = Word2Vec.load('../data/w2v_200_5_w8').wv
@@ -46,28 +49,32 @@ class Data:
             self.all_mpk = pickle.load(f)
         self.mpk = ft.MPK()
 
-    def _push_worker(self, files):
-        docs_ram = {}
+    @staticmethod
+    def read_json(filename):
+        with GzipFile(filename) as f:
+            data = ujson.load(f)
+        return data
 
-        for _id, doc in fc.iter_docs(files, encode=False, with_ids=True, as_is=True):
-            if _id not in self.ids:
-                continue
-            _doc = {k: [self.token2id[w] for s in v for w in s] for k, v in doc.items()}
-            docs_ram[_id] = _doc
-        return docs_ram
+    def _push_worker(self, data):
+        _docs = {_id: {k: [self.token2id[w] for s in v for w in s]
+                       for k, v in doc.items() if _id in self.ids} for _id, doc in data.items()}
+        return _docs
 
     def push_docs_to_ram(self):
-        logging.info("loading docs to RAM")
+        start = time.time()
         docs_ram = {}
 
-        func = partial(self._push_worker)
-        with ThreadPool(processes=cpu_count) as pool:
-            res = pool.map(func, np.array_split(self.corpus_files, cpu_count))
+        for chunk in grouper(self.corpus_files, cpu_count):
+            with multiprocessing.Pool(processes=cpu_count) as pool:
+                res = pool.map(self.read_json, chunk)
+            with ThreadPool(processes=cpu_count) as pool:
+                res = pool.map(self._push_worker, res)
+            for doc in res:
+                docs_ram.update(doc)
 
-        for doc in res:
-            docs_ram.update(doc)
-
-        logging.info("loaded docs to RAM")
+        end = time.time()
+        logging.info('docs loaded in %f m.' % ((end - start)/60.))
+        gc.collect()
         return docs_ram
 
     @staticmethod
@@ -104,7 +111,7 @@ class Data:
 
     def tag_vectors(self, doc):
         vecs = {}
-        for k,v in doc.items():
+        for k, v in doc.items():
             words = [vi for vi in v if vi in self.wv]
             if len(words):
                 word_vecs = self.wv[words]
@@ -171,13 +178,12 @@ data = Data(unique)
 ftrs = []
 for anc, pos, neg in tqdm(samples):
     q = data.doc_info(anc)
-    ranks = [1]*len(pos) + [0]*len(neg)
+    ranks = [1] * len(pos) + [0] * len(neg)
     for rank, d_ix in zip(ranks, pos):
         d = data.doc_info(d_ix)
         _ft = data.score(q, d)
         _ft['rank'] = rank
         ftrs.append(_ft)
-
 
 corpus = MmCorpus('../data/corpus.mm')
 # build_tfidf_index(dictionary, corpus, anew=True)
@@ -188,7 +194,6 @@ all_ids = fc.load_keys('../data/keys.json')
 
 tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
 tfidf_scores = tfidf_blob.extract(samples, '../data/tfidf.csv', n_chunks=150)
-
 
 # q_ix = all_ids.index('5984b7c2b6b1132856638528')
 # d_ix = all_ids.index('5984b65cb6b1131291638512')
