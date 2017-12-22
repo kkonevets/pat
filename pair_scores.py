@@ -51,7 +51,8 @@ class Data:
 
     def _push_worker(self, files):
         docs_ram = {_id: self._read_doc(doc) for _id, doc in
-                    fc.iter_docs(files, with_ids=True, as_is=True) if _id in self.ids}
+                    fc.iter_docs(files, with_ids=True, as_is=True, visual=False)
+                    if _id in self.ids}
         return docs_ram
 
     def push_docs_to_ram(self):
