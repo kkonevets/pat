@@ -52,11 +52,13 @@ def save_texts(docs, fname):
         fout.write(json_bytes)
 
 
-def iter_docs(fnames, encode=False, with_ids=False, as_is=False):
+def iter_docs(fnames, encode=False, with_ids=False, as_is=False, visual=True):
     def do_encode(w):
         return w.encode() if encode else w
 
-    for filename in tqdm(fnames):
+    iterator = tqdm(fnames) if visual else fnames
+
+    for filename in iterator:
         with GzipFile(filename) as f:
             data = ujson.load(f)
         for _id, doc in data.items():
