@@ -56,7 +56,7 @@ def iter_docs(fnames, encode=False, with_ids=False, as_is=False):
     def do_encode(w):
         return w.encode() if encode else w
 
-    for filename in fnames:
+    for filename in tqdm(fnames):
         with GzipFile(filename) as f:
             data = ujson.load(f)
         for _id, doc in data.items():
