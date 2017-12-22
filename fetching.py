@@ -77,8 +77,8 @@ def reqad_file(filename, as_is, with_ids, encode):
 def iter_docs(fnames, encode=False, with_ids=False, as_is=False, visual=True):
     iterator = tqdm(fnames) if visual else fnames
 
-    return (el for fname in iterator
-            for el in reqad_file(fname, as_is, with_ids, encode))
+    for fname in iterator:
+        return (el for el in reqad_file(fname, as_is, with_ids, encode))
 
 
 def keys_from_json(fnames):

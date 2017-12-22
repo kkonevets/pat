@@ -6,8 +6,10 @@ from operator import itemgetter
 from scipy.spatial import distance
 from importlib import reload
 from functools import partial
+from numba import jit
 import multiprocessing
 import threading
+import time
 from multiprocessing.pool import ThreadPool
 import features as ft
 import fetching as fc
@@ -49,13 +51,17 @@ class Data:
     def _read_doc(self, doc):
         return {k: [self.token2id[w] for s in v for w in s] for k, v in doc.items()}
 
+    @staticmethod
+    def read_files(files):
+        return fc.iter_docs(files, with_ids=True, as_is=True)
+
     def _push_worker(self, files):
         docs_ram = {_id: self._read_doc(doc) for _id, doc in
-                    fc.iter_docs(files, with_ids=True, as_is=True, visual=False)
-                    if _id in self.ids}
+                    self.read_files(files) if _id in self.ids}
         return docs_ram
 
     def push_docs_to_ram(self):
+        start = time.time()
         logging.info("loading docs to RAM")
         docs_ram = {}
 
@@ -66,7 +72,8 @@ class Data:
         for doc in res:
             docs_ram.update(doc)
 
-        logging.info("loaded docs to RAM")
+        end = time.time()
+        logging.info("loaded docs to RAM in %s m" % (end - start)/60.)
         return docs_ram
 
     @staticmethod
