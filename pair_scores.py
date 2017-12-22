@@ -1,4 +1,3 @@
-
 from common import *
 from itertools import *
 import qdr
@@ -48,6 +47,7 @@ class Data:
         with open('../data/all_mpk.pkl', 'rb') as f:
             self.all_mpk = pickle.load(f)
         self.mpk = ft.MPK()
+        logging.info('data is loaded')
 
     def _push_worker(self, filename):
         with GzipFile(filename) as f:
@@ -59,6 +59,13 @@ class Data:
         return _docs
 
     def push_docs_to_ram(self):
+        fname = '../data/docs_ram.pkl'
+        if path.exists(fname):
+            with open(fname, 'rb') as f:
+                docs_ram = pickle.load(f)
+            logging.info('docs loaded from %s' % fname)
+            return docs_ram
+
         start = time.time()
         docs_ram = {}
 
@@ -66,7 +73,10 @@ class Data:
             docs_ram.update(self._push_worker(filename))
 
         end = time.time()
-        logging.info('docs loaded in %f m.' % ((end - start)/60.))
+        logging.info('docs loaded in %f m.' % ((end - start) / 60.))
+        with open(fname, 'wb') as f:
+            pickle.dump(f, docs_ram)
+        logging.info('docs saved to %s' % fname)
         return docs_ram
 
     @staticmethod
@@ -74,7 +84,7 @@ class Data:
         keys = [set(d.keys()) for d in args]
         keys = set.intersection(*keys)
         _ft = {'%s_%s' % (k, prefix): func(*(d[k] for d in args)) for k in keys}
-        _ft = {'%s_%s' % (k, ki): vi for k,v in _ft.items() for ki, vi in v.items()}
+        _ft = {'%s_%s' % (k, ki): vi for k, v in _ft.items() for ki, vi in v.items()}
         return _ft
 
     @staticmethod
@@ -108,7 +118,7 @@ class Data:
 
     def tag_vectors(self, doc):
         vecs = {k: self.words2vec(v) for k, v in doc.items()}
-        vecs = {k: v for k,v in vecs.items() if v is not None}
+        vecs = {k: v for k, v in vecs.items() if v is not None}
         return vecs
 
     @staticmethod
@@ -145,6 +155,30 @@ class Data:
 
         return ftrs
 
+    def precess_one(self, q, d_ix, rank):
+        d = self.doc_info(d_ix)
+        _ft = self.score(q, d)
+        _ft['rank'] = rank
+        return _ft
+
+    def scores_worker(self, samples):
+        ftrs = []
+        for i, (anc, pos, neg) in enumerate(samples):
+            q = self.doc_info(anc)
+            ranks = [1] * len(pos) + [0] * len(neg)
+            _s = [self.precess_one(q, d_ix, rank)
+                  for rank, d_ix in zip(ranks, pos + neg)]
+            ftrs += _s
+            if (i + 1) % 1000 == 0:
+                print("%s: %d%%" % (threading.get_ident(), 100*i/len(samples)))
+        return ftrs
+
+    def scores(self, samples, n_threads=cpu_count):
+        with ThreadPool(processes=n_threads) as pool:
+            res = pool.map(self.scores_worker, np.array_split(samples, n_threads))
+        ftrs = list(chain.from_iterable(res))
+        return ftrs
+
 
 with open('../data/sampled.json', 'r') as f:
     samples = json.load(f)
@@ -152,16 +186,9 @@ with open('../data/sampled.json', 'r') as f:
 unique = sorted(list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])))
 
 data = Data(unique)
+ftrs = data.scores(samples)
 
-ftrs = []
-for anc, pos, neg in tqdm(samples):
-    q = data.doc_info(anc)
-    ranks = [1] * len(pos) + [0] * len(neg)
-    for rank, d_ix in zip(ranks, pos):
-        d = data.doc_info(d_ix)
-        _ft = data.score(q, d)
-        _ft['rank'] = rank
-        ftrs.append(_ft)
+#   ################# gensim tfidf ##############
 
 corpus = MmCorpus('../data/corpus.mm')
 # build_tfidf_index(dictionary, corpus, anew=True)
@@ -173,7 +200,7 @@ all_ids = fc.load_keys('../data/keys.json')
 tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
 tfidf_scores = tfidf_blob.extract(samples, '../data/tfidf.csv', n_chunks=150)
 
-
+#   ############################################
 
 # all_ids = fc.load_keys('../data/keys.json')
 # q_ix = all_ids.index('5984b7c2b6b1132856638528')
