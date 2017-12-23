@@ -7,7 +7,7 @@ with open('../data/train.txt') as trainfile, \
     VX, Vy, Vqids, _ = pyltr.data.letor.read_dataset(valifile)
     EX, Ey, Eqids, _ = pyltr.data.letor.read_dataset(evalfile)
 
-metric = pyltr.metrics.AP
+metric = pyltr.metrics.AP()
 
 monitor = pyltr.models.monitors.ValidationMonitor(
     VX, Vy, Vqids, metric=metric, stop_after=250)
@@ -25,10 +25,8 @@ model = pyltr.models.LambdaMART(
 
 model.fit(TX, Ty, Tqids, monitor=monitor)
 
-print(fitted)
+print('fitted')
 
 Epred = model.predict(EX)
 print('Random ranking:', metric.calc_mean_random(Eqids, Ey))
 print('Our model:', metric.calc_mean(Eqids, Ey, Epred))
-
-metric.calc_mean_random()
