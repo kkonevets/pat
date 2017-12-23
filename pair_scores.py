@@ -75,7 +75,7 @@ class Data:
         end = time.time()
         logging.info('docs loaded in %f m.' % ((end - start) / 60.))
         with open(fname, 'wb') as f:
-            pickle.dump(f, docs_ram)
+            pickle.dump(docs_ram, f)
         logging.info('docs saved to %s' % fname)
         return docs_ram
 
@@ -155,27 +155,29 @@ class Data:
 
         return ftrs
 
-    def precess_one(self, q, d_ix, rank):
+    def process_one(self, q, d_ix, rank):
         d = self.doc_info(d_ix)
         _ft = self.score(q, d)
         _ft['rank'] = rank
         return _ft
 
+    def process_triple(self, anc, pos, neg):
+        q = self.doc_info(anc)
+        ranks = [1] * len(pos) + [0] * len(neg)
+        _s = [self.process_one(q, d_ix, rank)
+              for rank, d_ix in zip(ranks, pos + neg)]
+        return _s
+
     def scores_worker(self, samples):
         ftrs = []
-        for i, (anc, pos, neg) in enumerate(samples):
-            q = self.doc_info(anc)
-            ranks = [1] * len(pos) + [0] * len(neg)
-            _s = [self.precess_one(q, d_ix, rank)
-                  for rank, d_ix in zip(ranks, pos + neg)]
-            ftrs += _s
-            if (i + 1) % 1000 == 0:
-                print("%s: %d%%" % (threading.get_ident(), 100*i/len(samples)))
+        for anc, pos, neg in tqdm(samples):
+            for _ft in self.process_triple(anc, pos, neg):
+                ftrs.append(_ft)
         return ftrs
 
     def scores(self, samples, n_threads=cpu_count):
         with ThreadPool(processes=n_threads) as pool:
-            res = pool.map(self.scores_worker, np.array_split(samples, n_threads))
+            res = pool.map(self.scores_worker, chunkify(samples, n_threads))
         ftrs = list(chain.from_iterable(res))
         return ftrs
 
@@ -186,7 +188,9 @@ with open('../data/sampled.json', 'r') as f:
 unique = sorted(list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])))
 
 data = Data(unique)
-ftrs = data.scores(samples)
+ftrs = data.scores_worker(samples)
+df = ft.to_dataframe(ftrs)
+ft.save(df, '../data/ftrs_new.csv.gz', compression='gzip')
 
 #   ################# gensim tfidf ##############
 
