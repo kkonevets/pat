@@ -1,0 +1,11 @@
+
+'../data/train.txt'
+
+java -jar RankLib-2.9.jar -train train.txt -validate vali.txt -test test.txt -ranker 6 -metric2t MAP -metric2T MAP -save lmart.txt
+
+java -jar RankLib-2.9.jar -train train.txt -validate vali.txt -test test.txt -ranker 7 -metric2T MAP -save lnet.txt
+
+java -jar RankLib-2.9.jar -load lmart.txt -test test.txt -metric2T MAP
+
+
+/usr/local/Cellar/python3/3.6.3/Frameworks/Python.framework/Versions/3.6/bin/python3.6
