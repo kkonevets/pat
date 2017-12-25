@@ -171,10 +171,12 @@ class Data:
     def scores_worker(self, samples):
         ftrs = []
         _l = sum([1+len(pos) +len(neg) for anc, pos, neg in samples])
-        for anc, pos, neg in enumerate(tqdm(samples)):
+        i = 0
+        for anc, pos, neg in tqdm(samples):
             for _ft in self.process_triple(anc, pos, neg):
                 ftrs.append(_ft)
-            print('%f%%' % (100.*(1.+len(pos)+len(neg))/_l))
+            i += 1.+len(pos)+len(neg)
+            print('%f%%' % (100.*i/_l))
         return ftrs
 
     def scores(self, samples, n_threads=cpu_count):
@@ -223,6 +225,9 @@ data = Data(unique)
 ftrs = data.scores_worker(samples_test)
 df = ft.to_dataframe(ftrs)
 ft.save(df, '../data/ftrs_test_new.csv.gz', compression='gzip')
+
+with open('../data/all_mpk.pkl', 'rb') as f:
+    all_mpk = pickle.load(f)
 
 #   ############################################
 
