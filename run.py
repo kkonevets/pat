@@ -256,8 +256,11 @@ _gold = {ix_map[k]: [ix_map[vi] for vi in v] for k,v in gold.items()}
 
 
 tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
-preds = tfidf_blob.predict(_gold.keys())
-preds = preds[:, 1:]
+cosines = tfidf_blob.get_cosines(_gold.keys())
+preds = np.argsort(-cosines)
+sorted_cosines = -np.sort(-cosines)
+preds = preds[:,1:]
+sorted_cosines = sorted_cosines[:,1:]
 
 
 found_at = []
@@ -270,6 +273,21 @@ for i, iix in enumerate(preds):
 
 
 pd.Series(found_at).describe().plot.hist(bins=100)
+
+
+test_ixs = []
+keys = list(_gold.keys())
+for i, (iix, coss) in enumerate(zip(preds, sorted_cosines)):
+    ix = keys[i]
+    posvs = _gold[ix]
+    ixs = np.isin(iix, posvs)
+    mix = max(np.where(ixs)[0])
+    up_to = max(13000, mix + 10)
+    test_ixs.append(list(zip(iix[:up_to], coss[:up_to])))
+
+test_ixs = [[(int(i), float(cos)) for i,cos in el] for el in test_ixs]
+with open('../data/test_ixs.json', 'w') as f:
+    json.dump(test_ixs, f)
 
 
 

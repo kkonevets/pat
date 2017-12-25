@@ -185,24 +185,42 @@ class Data:
 with open('../data/sampled.json', 'r') as f:
     samples = json.load(f)
 
-unique = sorted(list(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples])))
+unique = sorted(list(set(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples]))))
 
 data = Data(unique)
 ftrs = data.scores_worker(samples)
 df = ft.to_dataframe(ftrs)
 ft.save(df, '../data/ftrs_new.csv.gz', compression='gzip')
+ftrs[:10000].to_csv('../data/ftrs_new_show.csv')
+
+
+ftrs = pd.read_csv('../data/ftrs_new.csv.gz')
+
 
 #   ################# gensim tfidf ##############
 
-corpus = MmCorpus('../data/corpus.mm')
-# build_tfidf_index(dictionary, corpus, anew=True)
-
-index = Similarity.load('../data/sim_index/sim')
-tfidf = TfidfModel.load('../data/tfidf.model')
 all_ids = fc.load_keys('../data/keys.json')
+with open('../data/gold_mongo.json', 'r') as f:
+    gold = json.load(f)
+ix_map = {vi: i for i, vi in enumerate(all_ids)}
+_gold = {ix_map[k]: [ix_map[vi] for vi in v] for k,v in gold.items()}
+keys = list(_gold.keys())
 
-tfidf_blob = ft.TfIdfBlob(corpus, tfidf, index, all_ids)
-tfidf_scores = tfidf_blob.extract(samples, '../data/tfidf.csv', n_chunks=150)
+with open('../data/test_ixs.json', 'r') as f:
+    test_ixs = json.load(f)
+
+samples_test = []
+for q_ix, vals in zip(keys, test_ixs):
+    _g = _gold[q_ix]
+    s = [q_ix, _g, [i for i,cos in vals if i not in set(_g)]]
+    samples_test.append(s)
+
+unique = sorted(list(set(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples_test]))))
+data = Data(unique)
+ftrs = data.scores_worker(samples)
+df = ft.to_dataframe(ftrs)
+ft.save(df, '../data/ftrs_test_new.csv.gz', compression='gzip')
+
 
 #   ############################################
 
