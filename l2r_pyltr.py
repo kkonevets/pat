@@ -14,8 +14,8 @@ monitor = pyltr.models.monitors.ValidationMonitor(
 
 model = pyltr.models.LambdaMART(
     metric=metric,
-    n_estimators=1000,
-    learning_rate=0.02,
+    n_estimators=1500,
+    learning_rate=0.05,
     max_features=0.5,
     query_subsample=0.5,
     max_leaf_nodes=10,
@@ -25,8 +25,13 @@ model = pyltr.models.LambdaMART(
 
 model.fit(TX, Ty, Tqids, monitor=monitor)
 
-print('fitted')
-
 Epred = model.predict(EX)
 print('Random ranking:', metric.calc_mean_random(Eqids, Ey))
 print('Our model:', metric.calc_mean(Eqids, Ey, Epred))
+
+
+##############################################################
+
+
+from learning2rank.rank import ListNet
+Model = ListNet.ListNet()
