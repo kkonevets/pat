@@ -151,7 +151,7 @@ cosines = pd.read_csv('../data/cosines.csv')
 
 #   ############################### MPK #######################################
 
-all_mpk = fc.MPKFetcher().fetch_all(samples, all_ids, fname='../data/all_mpk.pkl')
+all_mpk = fc.MPKFetcher().fetch_all(all_ids, fname='../data/all_mpk.pkl')
 
 with open('../data/all_mpk.pkl', 'rb') as f:
     all_mpk = pickle.load(f)

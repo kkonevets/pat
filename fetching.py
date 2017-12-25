@@ -185,12 +185,10 @@ class MPKFetcher:
             doc['mpk'] = []
         return doc
 
-    def fetch_all(self, samples, all_ids, fname=None):
-        for q_ix, pos, neg in tqdm(samples):
-            for _ix in [q_ix] + pos + neg:
-                _id = all_ids[_ix]
-                if _id not in self.all_mpk:
-                    self.all_mpk[_id] = self.fetch_one(_id)
+    def fetch_all(self, all_ids, fname=None):
+        for _id in tqdm(all_ids):
+            if _id not in self.all_mpk:
+                self.all_mpk[_id] = self.fetch_one(_id)
 
         if fname:
             with open(fname, 'wb') as f:
