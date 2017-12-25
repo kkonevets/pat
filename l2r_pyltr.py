@@ -1,4 +1,5 @@
 # import pyltr
+import pickle
 #
 # with open('../data/train.txt') as trainfile, \
 #         open('../data/vali.txt') as valifile, \
@@ -29,6 +30,10 @@
 # print('Random ranking:', metric.calc_mean_random(Eqids, Ey))
 # print('Our model:', metric.calc_mean(Eqids, Ey, Epred))
 #
+#
+# with open('../data/pyltr_model.pkl', 'wb') as f:
+#     pickle.dump(model, f)
+
 ##############################################################
 
 from common import *
@@ -57,10 +62,8 @@ y_test = test['rank'].values
 Model.fit(X_train, y_train, batchsize=100, n_epoch=200, n_units1=512, n_units2=128, tv_ratio=0.8,
           optimizerAlgorithm="Adam", savefigName="result.pdf", savemodelName="ListNet.model")
 
-print(1)
-
 y_pred = Model.predict(X_test)
 
-import chainer
 
-chainer.using_config
+with open('../data/l2r_model.pkl', 'wb') as f:
+    pickle.dump(Model, f)
