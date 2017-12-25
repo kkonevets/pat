@@ -170,9 +170,11 @@ class Data:
 
     def scores_worker(self, samples):
         ftrs = []
-        for anc, pos, neg in tqdm(samples):
+        _l = sum([1+len(pos) +len(neg) for anc, pos, neg in samples])
+        for anc, pos, neg in enumerate(tqdm(samples)):
             for _ft in self.process_triple(anc, pos, neg):
                 ftrs.append(_ft)
+            print('%f%%' % (100.*(1.+len(pos)+len(neg))/_l))
         return ftrs
 
     def scores(self, samples, n_threads=cpu_count):
@@ -197,7 +199,7 @@ ftrs[:10000].to_csv('../data/ftrs_new_show.csv')
 ftrs = pd.read_csv('../data/ftrs_new.csv.gz')
 
 
-#   ################# gensim tfidf ##############
+#   ################# test 184 ##############
 
 all_ids = fc.load_keys('../data/keys.json')
 with open('../data/gold_mongo.json', 'r') as f:
@@ -216,11 +218,11 @@ for q_ix, vals in zip(keys, test_ixs):
     samples_test.append(s)
 
 unique = sorted(list(set(chain.from_iterable([[anc] + pos + neg for anc, pos, neg in samples_test]))))
+
 data = Data(unique)
-ftrs = data.scores_worker(samples)
+ftrs = data.scores_worker(samples_test)
 df = ft.to_dataframe(ftrs)
 ft.save(df, '../data/ftrs_test_new.csv.gz', compression='gzip')
-
 
 #   ############################################
 
